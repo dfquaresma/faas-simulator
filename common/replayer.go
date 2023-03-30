@@ -1,16 +1,16 @@
-package sim
+package common
 
 type iReplayer interface {
-	play() error
+	play()
 }
 
 type replayer struct {
 	*godes.Runner
-	invocations      []iInvocation
+	invocations      iInvocations
 	functionSelector iFunctionSelector
 }
 
-func newReplayer(invocations []iInvocation, functionSelector iFunctionSelector) *replayer {
+func newReplayer(invocations iInvocations, functionSelector iFunctionSelector) *replayer {
 	return &replayer{
 		Runner:  			&godes.Runner{},
 		invocations: 		invocations,
@@ -18,4 +18,11 @@ func newReplayer(invocations []iInvocation, functionSelector iFunctionSelector) 
 	}
 }
 
-func (tr *replayer) play() error {}
+func (tr *replayer) play() {
+	for invoc := tr.invocations.next(); invoc != nil; invoc = tr.invocations.next() {
+		godes.Advance(invoc.getStartTS())
+		invoc.setForwardedTs(godes.GetSystemTime())
+		tr.functionSelector.forward(invoc)
+    }
+	tr.functionSelector.terminate()
+}

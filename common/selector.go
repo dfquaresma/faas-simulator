@@ -1,7 +1,7 @@
-package sim
+package common
 
 type iSelector interface {
-	forward(req Request)
+	forward(inv iInvocation)
 }
 
 type selector struct {
@@ -29,5 +29,7 @@ func (fs *selector) getProvisioner(funcID string) *ResourceProvisioner, bool {
 }
 
 func (fs *selector) newProvisioner(appId, funcID string) *ResourceProvisioner {
-
+	frp := newResourceProvisioner(appId, funcID)
+	provisioners[funcID] = frp
+	return frp
 }

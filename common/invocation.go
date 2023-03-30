@@ -1,4 +1,4 @@
-package sim
+package common
 
 type iInvocation interface {
 	getAppID() 		string
@@ -8,6 +8,7 @@ type iInvocation interface {
 	getEndTS() 		float64
 
 	getID() int64
+	setForwardedTs(ft float64)
 	updateHops(replicaID string)
 	updateHopResponse(hopResponse float64)
 }
@@ -64,6 +65,10 @@ func (i *invocation) getID() int64 {
 	return i.im.id
 }
 
+func (i *invocation) setForwardedTs(ft float64) {
+	return i.im.forwardedTs = ft
+}
+
 func (i *invocation) updateHops(replicaID string) {
 	i.im.hops = append(i.im.hops, replicaID)
 }
@@ -71,4 +76,67 @@ func (i *invocation) updateHops(replicaID string) {
 func (i *invocation) updateHopResponse(hopResponse float64) {
 	i.im.hopResponses = append(i.im.hopResponses, hopResponse)
 	i.im.responseTime += hopResponse
+}
+
+type iInvocations interface {
+	next() 		iInvocation
+	hasNext()   bool
+}
+
+type invocations struct {
+	iLen	    int64
+	iterator	int64
+	invocations []iInvocation
+}
+
+func newInvocation(rows [][]string) (*invocation, error) {
+	invocs := make([]iInvocation, 0)
+	for id, row := range rows {
+		traceEntry, err := toTraceEntry(row)
+		if err != nil {
+			return nil, err
+		}
+		invoc := newInvocation(id, traceEntry)
+		invocs = append(invocs, invoc)
+	}
+
+	return &invocations{
+		iLen: 		 len(invocs),
+		invocations: invocs,
+	}
+}
+
+func (i *invocations) next() *invocation {
+	if !i.hasNext() {
+		return nil
+	}
+	return i.invocations[i.iterator++]
+}
+
+func (i *invocations) hasNext() bool {
+	return i.iterator < i.iLen
+}
+
+func toTraceEntry(row []string) (traceEntry, error) {
+	// Row expected format: func,duration,startts,app,endts 
+
+	AppID  := row[0]
+	funcID := row[1]
+
+	startTS, err := strconv.ParseFloat(row[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing start_timestamp in row (%v): %q", row, err)
+	}
+	
+	duration, err := strconv.ParseFloat(row[3], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing duration in row (%v): %q", row, err)
+	}
+
+	endTS, err := strconv.ParseFloat(row[4], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
+	}
+
+	return traceEntryy{Status: status, ResponseTime: responseTime, Body: body, TsBefore: tsbefore, TsAfter: tsafter}, nil
 }

@@ -9,6 +9,7 @@ type iInvocation interface {
 
 	getID() int64
 	setForwardedTs(ft float64)
+	setProcessedTs(ft float64)
 	updateHops(replicaID string)
 	updateHopResponse(hopResponse float64)
 }
@@ -29,6 +30,7 @@ type traceEntry struct {
 type invocationMetadata struct {
 	id          	int64
 	forwardedTs		float64
+	processedTs		float64
 	responseTime	float64
 	hops 			[]string
 	hopResponses   	[]float64
@@ -67,6 +69,10 @@ func (i *invocation) getID() int64 {
 
 func (i *invocation) setForwardedTs(ft float64) {
 	return i.im.forwardedTs = ft
+}
+
+func (i *invocation) setProcessedTs(pt float64) {
+	return i.im.processedTs = pt
 }
 
 func (i *invocation) updateHops(replicaID string) {

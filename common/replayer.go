@@ -1,28 +1,24 @@
 package common
 
-type iReplayer interface {
-	play()
-}
-
 type replayer struct {
 	*godes.Runner
-	invocations      iInvocations
-	functionSelector iFunctionSelector
+	invocations     iInvocations
+	selector 		iSelector
 }
 
-func newReplayer(invocations iInvocations, functionSelector iFunctionSelector) *replayer {
+func newReplayer(invocations *iInvocations, selector iSelector) *replayer {
 	return &replayer{
 		Runner:  			&godes.Runner{},
 		invocations: 		invocations,
-		functionSelector: 	functionSelector,
+		selector: 			selector,
 	}
 }
 
-func (tr *replayer) play() {
-	for invoc := tr.invocations.next(); invoc != nil; invoc = tr.invocations.next() {
-		godes.Advance(invoc.getStartTS())
-		invoc.setForwardedTs(godes.GetSystemTime())
-		tr.functionSelector.forward(invoc)
+func (tr *replayer) Run() {
+	for i := tr.invocations.next(); i != nil; i = tr.invocations.next() {
+		godes.Advance(i.getStartTS())
+		i.setForwardedTs(godes.GetSystemTime())
+		tr.selector.forward(i)
     }
-	tr.functionSelector.terminate()
+	tr.selector.terminate()
 }

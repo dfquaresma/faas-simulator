@@ -1,28 +1,74 @@
 package common
 
 type iResourceProvisioner interface {
-	forward(inv iInvocation)
-	response(inv iInvocation)
+	forward(i *invocation)
+	setAvailable(r *replica)
+	terminate()
 }
 
 type resourceProvisioner struct {
 	*godes.Runner
-	arrivalQueue	*godes.FIFOQueue
-	arrivalCond		*godes.BooleanControl
-	appID			string
-	funcID			string
-	replicas		[]iReplica
-	availableRep	int64
+	arrivalCond			*godes.BooleanControl
+	availableCond		*godes.BooleanControl
+	arrivalQueue		*godes.FIFOQueue
+	availableReplicas	*godes.LIFOQueue
+	appID				string
+	funcID				string
+	frpID				string
+	terminated  		bool
+	replicas			[]iReplica
 }
 
-func newResourceProvisioner(appID, funcID string) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string) *resourceProvisioner {
 	return &resourceProvisioner{
-		Runner:			&godes.Runner{},
-		arrivalQueue:	godes.NewFIFOQueue("arrival"),
-		arrivalCond:	godes.NewBooleanControl(),
-		appID:			appID,
-		funcID:			funcID,
-		replicas:		make([]iReplica),
-		availableRep: 	-1,	
+		Runner:				&godes.Runner{},
+		arrivalCond:		godes.NewBooleanControl(),
+		availableCond		godes.NewBooleanControl(),
+		arrivalQueue:		godes.NewFIFOQueue("arrival"),
+		availableReplicas:	godes.NewLIFOQueue("available"),
+		appID:				aid,
+		funcID:				fid,
+		frpID:				aid + fid,
+		replicas:			make([]iReplica),
+	}
+}
+
+func (frp *resourceProvisioner) forward(i *invocation) {
+	frp.arrivalQueue.Place(i)
+	frp.arrivalCond.Set(true)
+}
+
+func (frp *resourceProvisioner) setAvailable(r *replica) {
+	frp.availableReplicas.Place(r)
+}
+
+func (frp *resourceProvisioner) getAvailableReplica() *replica {
+	if frp.availableReplicas.Len() > 0 {
+		return frp.availableReplicas.Get().(*replica)
+	}
+	rid := fmt.Sprintf("%d", len(replicas))
+	replica := newReplica(frp, rid, frp.appID, frp.funcID)
+	replicas = append(replicas, replica)
+	return replica
+}
+
+func (frp *resourceProvisioner) terminate() {
+	frp.terminated = true
+	frp.arrivalCond.Set(true)
+	for _, r := range frp.replicas {
+		r.terminate()
+	}
+}
+
+func (frp *resourceProvisioner) Run() {
+	for {
+		frp.arrivalCond.Wait(true)
+		if frp.arrivalQueue.Len() > 0 {
+			i := frp.arrivalQueue.Get().(*invocation)
+			frp.getAvailableReplica().process(i)
+			continue
+		}
+		if frp.terminated { break }
+		frp.arrivalCond.Set(false)
 	}
 }

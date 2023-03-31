@@ -1,10 +1,12 @@
 package common
 
 type iSelector interface {
-	forward(inv iInvocation)
+	forward(i *invocation)
+	terminate()
 }
 
 type selector struct {
+	*godes.Runner
 	provisioners	map[string]IResourceProvisioner
 }
 
@@ -14,22 +16,30 @@ func newSelector() *selector {
 	}
 }
 
-func (fs *selector) forward(inv iInvocation) *ResourceProvisioner {
-	frp, exist := getProvisioner(inv.getFuncID())
-	if !exist {
-		frp = newProvisioner(inv.getAppID(), inv.getFuncID())
-	}
-	frp.forward(inv)
-}
-
-func (fs *selector) getProvisioner(funcID string) *ResourceProvisioner, bool {
-	frp := provisioners[funcID]
+func (fs *selector) getProvisioner(fid string) (*ResourceProvisioner, bool) {
+	frp := provisioners[fid]
 	bo := frp != nil
 	return frp, bo
 }
 
-func (fs *selector) newProvisioner(appId, funcID string) *ResourceProvisioner {
-	frp := newResourceProvisioner(appId, funcID)
-	provisioners[funcID] = frp
+func (fs *selector) newProvisioner(aid, fid string) *ResourceProvisioner {
+	frp := newResourceProvisioner(aid, fid)
+	provisioners[fid] = frp
+	godes.AddRunner(frp)
 	return frp
 }
+
+func (fs *selector) forward(i *invocation) {
+	frp, exist := getProvisioner(i.getFuncID())
+	if !exist {
+		frp = newProvisioner(i.getAppID(), i.getFuncID())
+	}
+	frp.forward(i)
+}
+
+func (fs *selector) terminate(i *invocation) {
+	for _, frp := range fr.provisioners {
+		frp.terminate()
+	}
+}
+

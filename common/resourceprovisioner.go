@@ -4,6 +4,7 @@ type iResourceProvisioner interface {
 	forward(i *invocation)
 	setAvailable(r *replica)
 	terminate()
+	getOutPut() [][]string
 }
 
 type resourceProvisioner struct {
@@ -71,4 +72,12 @@ func (frp *resourceProvisioner) Run() {
 		if frp.terminated { break }
 		frp.arrivalCond.Set(false)
 	}
+}
+
+func (frp *resourceProvisioner) getOutPut() [][]string {
+	res := [][]string{} 
+	for _, r := range frp.replicas {
+		res = append(res, r.getOutPut())
+	}
+	return res
 }

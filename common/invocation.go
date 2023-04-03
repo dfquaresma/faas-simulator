@@ -12,6 +12,8 @@ type iInvocation interface {
 	setProcessedTs(ft float64)
 	updateHops(replicaID string)
 	updateHopResponse(hopResponse float64)
+
+	getOutPut() []string
 }
 
 type invocation struct {
@@ -85,8 +87,9 @@ func (i *invocation) updateHopResponse(hopResponse float64) {
 }
 
 type iInvocations interface {
-	next() 		iInvocation
-	hasNext()   bool
+	next() 		 iInvocation
+	hasNext()    bool
+	getOutPut() [][]string
 }
 
 type invocations struct {
@@ -95,7 +98,7 @@ type invocations struct {
 	invocations []iInvocation
 }
 
-func newInvocation(rows [][]string) (*invocation, error) {
+func newInvocations(rows [][]string) (*invocations, error) {
 	invocs := make([]iInvocation, 0)
 	for id, row := range rows {
 		traceEntry, err := toTraceEntry(row)
@@ -145,4 +148,16 @@ func toTraceEntry(row []string) (traceEntry, error) {
 	}
 
 	return traceEntryy{Status: status, ResponseTime: responseTime, Body: body, TsBefore: tsbefore, TsAfter: tsafter}, nil
+}
+
+func (i *invocation) getOutPut() string {
+	return []string{"", "", ""}
+}
+
+func (i *invocations) getOutPut() [][]string {
+	res := [][]string{} 
+	for _, inv := range i.invocations {
+		res = append(res, inv.getOutPut())
+	}
+	return res
 }

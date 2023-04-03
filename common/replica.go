@@ -2,6 +2,7 @@ package common
 
 type iReplica interface {
 	process(i *invocation)
+	getOutPut() [][]string
 }
 
 type replica struct {
@@ -55,4 +56,8 @@ func (r *replica) Run() {
 		if r.terminated { break }
 		r.arrivalCond.Set(false)
 	}
+}
+
+func (r *replica) getOutPut() [][]string {
+	return [][]string{"", "", ""}
 }

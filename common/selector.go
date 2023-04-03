@@ -3,6 +3,7 @@ package common
 type iSelector interface {
 	forward(i *invocation)
 	terminate()
+	getOutPut() [][]string
 }
 
 type selector struct {
@@ -43,3 +44,10 @@ func (fs *selector) terminate(i *invocation) {
 	}
 }
 
+func (fs *selector) getOutPut() [][]string {
+	res := [][]string{} 
+	for _, frp := range fs.provisioners {
+		res = append(res, frp.getOutPut())
+	}
+	return res
+}

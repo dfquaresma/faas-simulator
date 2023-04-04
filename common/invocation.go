@@ -119,7 +119,8 @@ func (i *invocations) next() *invocation {
 	if !i.hasNext() {
 		return nil
 	}
-	index := i.iterator++
+	index := i.iterator
+	i.iterator++
 	return i.invocations[index]
 }
 

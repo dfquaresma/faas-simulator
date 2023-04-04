@@ -16,12 +16,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if *tracePath == "" {
-		log.Fatalf("A trace path must be given!")
-	}
-	if *outputPath == "" {
-		log.Fatalf("An output path must be given!")
-	}
+	validateParams(*tracePath, *outputPath)
 
 	rows := readInput(*tracePath)
 
@@ -33,6 +28,15 @@ func main() {
 	writeOutput(*outputPath + "invocations.csv", invocations.getOutPut())
 	writeOutput(*outputPath + "replicas.csv", selector.getOutPut())
 
+}
+
+func validateParams(tracePath, outputPath string) {
+	if tracePath == "" {
+		log.Fatalf("A trace path must be given!")
+	}
+	if outputPath == "" {
+		log.Fatalf("An output path must be given!")
+	}
 }
 
 func readInput(tracePath string) [][]string {

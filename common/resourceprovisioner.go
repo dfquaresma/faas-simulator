@@ -1,5 +1,9 @@
 package common
 
+import (
+	"github.com/agoussia/godes"
+)
+
 type iResourceProvisioner interface {
 	forward(i *invocation)
 	setAvailable(r *replica)

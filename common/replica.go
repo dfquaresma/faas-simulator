@@ -1,5 +1,10 @@
 package common
 
+import (
+	"time"
+	"github.com/agoussia/godes"
+)
+
 type iReplica interface {
 	process(i *invocation)
 	getOutPut() [][]string

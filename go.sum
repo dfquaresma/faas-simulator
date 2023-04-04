@@ -1,0 +1,4 @@
+github.com/agoussia/godes v0.0.0-20180605170806-4952b44f646a h1:QVIUa+IBZqFcZZgHGRC38bGVVeVA+Lw0rDkzJUqkBU0=
+github.com/agoussia/godes v0.0.0-20180605170806-4952b44f646a/go.mod h1:3dR4HcwVDonXNST+oNjI/4R6e/Dfdc9SF3t1+kmX7e0=
+github.com/dfquaresma/faas-simulator v0.0.0-20230404030650-a153fdf125d8 h1:raWuj3xPlevMf8pSRcYfzpfEZpTrpJFZ7Ltkg6eGdis=
+github.com/dfquaresma/faas-simulator v0.0.0-20230404030650-a153fdf125d8/go.mod h1:mqZw4+ajb+gYsRIrZzTloFEQjRdALOOFrDlxxCy6DSk=

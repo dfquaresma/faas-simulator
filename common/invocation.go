@@ -70,11 +70,11 @@ func (i *invocation) getID() int64 {
 }
 
 func (i *invocation) setForwardedTs(ft float64) {
-	return i.im.forwardedTs = ft
+	i.im.forwardedTs = ft
 }
 
 func (i *invocation) setProcessedTs(pt float64) {
-	return i.im.processedTs = pt
+	i.im.processedTs = pt
 }
 
 func (i *invocation) updateHops(replicaID string) {
@@ -119,7 +119,8 @@ func (i *invocations) next() *invocation {
 	if !i.hasNext() {
 		return nil
 	}
-	return i.invocations[i.iterator++]
+	index := i.iterator++
+	return i.invocations[index]
 }
 
 func (i *invocations) hasNext() bool {

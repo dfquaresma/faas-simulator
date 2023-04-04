@@ -22,7 +22,7 @@ func newReplica(frp *resourceProvisioner, rid, aid, fid string) *replica {
 		arrivalCond:    godes.NewBooleanControl(),
 		arrivalQueue:	godes.NewFIFOQueue("arrival"),
 		frp:			frp,
-		replicaID		rid,
+		replicaID:		rid,
 		appID:			aid,
 		funcID:			fid,
 	}

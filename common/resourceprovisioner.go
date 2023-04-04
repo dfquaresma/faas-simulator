@@ -20,11 +20,11 @@ type resourceProvisioner struct {
 	replicas			[]iReplica
 }
 
-func newResourceProvisioner(aid, fid string) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string) (*resourceProvisioner) {
 	return &resourceProvisioner{
 		Runner:				&godes.Runner{},
 		arrivalCond:		godes.NewBooleanControl(),
-		availableCond		godes.NewBooleanControl(),
+		availableCond:		godes.NewBooleanControl(),
 		arrivalQueue:		godes.NewFIFOQueue("arrival"),
 		availableReplicas:	godes.NewLIFOQueue("available"),
 		appID:				aid,

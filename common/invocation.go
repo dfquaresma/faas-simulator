@@ -1,5 +1,7 @@
 package common
 
+import "strconv"
+
 type iInvocation interface {
 	getAppID() 		string
 	getFuncID() 	string
@@ -30,7 +32,7 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	id          	int64
+	id          	int
 	forwardedTs		float64
 	processedTs		float64
 	responseTime	float64
@@ -93,9 +95,9 @@ type iInvocations interface {
 }
 
 type invocations struct {
-	iLen	    int64
+	iLen	    int
 	iterator	int64
-	invocations []iInvocation
+	invocations []invocation
 }
 
 func newInvocations(rows [][]string) (*invocations, error) {
@@ -112,10 +114,10 @@ func newInvocations(rows [][]string) (*invocations, error) {
 	return &invocations{
 		iLen: 		 len(invocs),
 		invocations: invocs,
-	}
+	}, nil
 }
 
-func (i *invocations) next() *invocation {
+func (i *invocations) next() *iInvocation {
 	if !i.hasNext() {
 		return nil
 	}

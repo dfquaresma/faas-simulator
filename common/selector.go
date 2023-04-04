@@ -1,8 +1,6 @@
 package common
 
 import (
-	"time"
-
 	"github.com/agoussia/godes"
 )
 
@@ -14,22 +12,22 @@ type iSelector interface {
 
 type selector struct {
 	*godes.Runner
-	provisioners	map[string]IResourceProvisioner
+	provisioners	map[string]iResourceProvisioner
 }
 
 func newSelector() *selector {
 	return &selector{
-		provisioners:	make(map[string]IResourceProvisioner),
+		provisioners:	make(map[string]iResourceProvisioner),
 	}
 }
 
-func (fs *selector) getProvisioner(fid string) (*ResourceProvisioner, bool) {
+func (fs *selector) getProvisioner(fid string) (*resourceProvisioner, bool) {
 	frp := provisioners[fid]
 	bo := frp != nil
 	return frp, bo
 }
 
-func (fs *selector) newProvisioner(aid, fid string) *ResourceProvisioner {
+func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
 	frp := newResourceProvisioner(aid, fid)
 	provisioners[fid] = frp
 	godes.AddRunner(frp)

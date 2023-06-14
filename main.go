@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"os"
+	"flag"
+	"log"
 
 	"github.com/dfquaresma/faas-simulator/common"
 )
@@ -20,13 +21,16 @@ func main() {
 
 	rows := readInput(*tracePath)
 
-	invocations := newInvocations(rows)
-	selector := newSelector()
-	replayer := newReplayer(invocations, selector)
+	invocations, err := common.NewInvocations(rows)
+	if err != nil {
+		panic(err)
+	}
+	selector :=  common.NewSelector()
+	replayer :=  common.NewReplayer(invocations, selector)
 	replayer.Run()
 
-	writeOutput(*outputPath + "invocations.csv", invocations.getOutPut())
-	writeOutput(*outputPath + "replicas.csv", selector.getOutPut())
+	writeOutput(*outputPath + "invocations.csv", invocations.GetOutPut())
+	writeOutput(*outputPath + "replicas.csv", selector.GetOutPut())
 
 }
 

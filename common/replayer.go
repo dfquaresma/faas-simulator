@@ -5,15 +5,16 @@ import (
 )
 
 type replayer struct {
-	invocations     iInvocations
-	selector 		iSelector
+	*godes.Runner
+	invocations *invocations
+	selector    *selector
 }
 
-func newReplayer(invocations *iInvocations, selector iSelector) *replayer {
+func NewReplayer(invocations *invocations, selector *selector) *replayer {
 	return &replayer{
-		Runner:  			&godes.Runner{},
-		invocations: 		invocations,
-		selector: 			selector,
+		Runner:      &godes.Runner{},
+		invocations: invocations,
+		selector:    selector,
 	}
 }
 
@@ -24,7 +25,7 @@ func (tr *replayer) Run() {
 		godes.Advance(i.getStartTS())
 		i.setForwardedTs(godes.GetSystemTime())
 		tr.selector.forward(i)
-    }
+	}
 	tr.selector.terminate()
 	godes.WaitUntilDone()
 }

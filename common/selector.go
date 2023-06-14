@@ -12,44 +12,44 @@ type iSelector interface {
 
 type selector struct {
 	*godes.Runner
-	provisioners	map[string]iResourceProvisioner
+	provisioners map[string]*resourceProvisioner
 }
 
-func newSelector() *selector {
+func NewSelector() *selector {
 	return &selector{
-		provisioners:	make(map[string]iResourceProvisioner),
+		provisioners: make(map[string]*resourceProvisioner),
 	}
 }
 
 func (fs *selector) getProvisioner(fid string) (*resourceProvisioner, bool) {
-	frp := provisioners[fid]
+	frp := fs.provisioners[fid]
 	bo := frp != nil
 	return frp, bo
 }
 
 func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
 	frp := newResourceProvisioner(aid, fid)
-	provisioners[fid] = frp
+	fs.provisioners[fid] = frp
 	godes.AddRunner(frp)
 	return frp
 }
 
 func (fs *selector) forward(i *invocation) {
-	frp, exist := getProvisioner(i.getFuncID())
+	frp, exist := fs.getProvisioner(i.getFuncID())
 	if !exist {
-		frp = newProvisioner(i.getAppID(), i.getFuncID())
+		frp = fs.newProvisioner(i.getAppID(), i.getFuncID())
 	}
 	frp.forward(i)
 }
 
-func (fs *selector) terminate(i *invocation) {
-	for _, frp := range fr.provisioners {
+func (fs *selector) terminate() {
+	for _, frp := range fs.provisioners {
 		frp.terminate()
 	}
 }
 
-func (fs *selector) getOutPut() [][]string {
-	res := [][]string{} 
+func (fs *selector) GetOutPut() [][]string {
+	res := [][]string{}
 	for _, frp := range fs.provisioners {
 		res = append(res, frp.getOutPut())
 	}

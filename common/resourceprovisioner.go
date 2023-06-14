@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/agoussia/godes"
+	"fmt"
 )
 
 type iResourceProvisioner interface {
@@ -13,28 +14,28 @@ type iResourceProvisioner interface {
 
 type resourceProvisioner struct {
 	*godes.Runner
-	arrivalCond			*godes.BooleanControl
-	availableCond		*godes.BooleanControl
-	arrivalQueue		*godes.FIFOQueue
-	availableReplicas	*godes.LIFOQueue
-	appID				string
-	funcID				string
-	frpID				string
-	terminated  		bool
-	replicas			[]iReplica
+	arrivalCond       *godes.BooleanControl
+	availableCond     *godes.BooleanControl
+	arrivalQueue      *godes.FIFOQueue
+	availableReplicas *godes.LIFOQueue
+	appID             string
+	funcID            string
+	frpID             string
+	terminated        bool
+	replicas          []*replica
 }
 
-func newResourceProvisioner(aid, fid string) (*resourceProvisioner) {
+func newResourceProvisioner(aid, fid string) *resourceProvisioner {
 	return &resourceProvisioner{
-		Runner:				&godes.Runner{},
-		arrivalCond:		godes.NewBooleanControl(),
-		availableCond:		godes.NewBooleanControl(),
-		arrivalQueue:		godes.NewFIFOQueue("arrival"),
-		availableReplicas:	godes.NewLIFOQueue("available"),
-		appID:				aid,
-		funcID:				fid,
-		frpID:				aid + fid,
-		replicas:			make([]iReplica),
+		Runner:            &godes.Runner{},
+		arrivalCond:       godes.NewBooleanControl(),
+		availableCond:     godes.NewBooleanControl(),
+		arrivalQueue:      godes.NewFIFOQueue("arrival"),
+		availableReplicas: godes.NewLIFOQueue("available"),
+		appID:             aid,
+		funcID:            fid,
+		frpID:             aid + fid,
+		replicas:          make([]*replica, 0),
 	}
 }
 
@@ -51,9 +52,9 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 	if frp.availableReplicas.Len() > 0 {
 		return frp.availableReplicas.Get().(*replica)
 	}
-	rid := fmt.Sprintf("%d", len(replicas))
+	rid := fmt.Sprintf("%d", len(frp.replicas))
 	replica := newReplica(frp, rid, frp.appID, frp.funcID)
-	replicas = append(replicas, replica)
+	frp.replicas = append(frp.replicas, replica)
 	return replica
 }
 
@@ -73,13 +74,15 @@ func (frp *resourceProvisioner) Run() {
 			frp.getAvailableReplica().process(i)
 			continue
 		}
-		if frp.terminated { break }
+		if frp.terminated {
+			break
+		}
 		frp.arrivalCond.Set(false)
 	}
 }
 
-func (frp *resourceProvisioner) getOutPut() [][]string {
-	res := [][]string{} 
+func (frp *resourceProvisioner) getOutPut() []string {
+	res := []string{}
 	for _, r := range frp.replicas {
 		res = append(res, r.getOutPut())
 	}

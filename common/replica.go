@@ -8,28 +8,30 @@ import (
 type iReplica interface {
 	process(i *invocation)
 	getOutPut() [][]string
+	terminate()
 }
 
 type replica struct {
 	*godes.Runner
-	arrivalCond    		*godes.BooleanControl
-	arrivalQueue		*godes.FIFOQueue
-	frp					*resourceProvisioner
-	replicaID			string
-	appID              	string
-	funcID             	string
-	idlenessDeadline 	time.Duration
+	arrivalCond      *godes.BooleanControl
+	arrivalQueue     *godes.FIFOQueue
+	frp              *resourceProvisioner
+	replicaID        string
+	appID            string
+	funcID           string
+	idlenessDeadline time.Duration
+	terminated       bool
 }
 
 func newReplica(frp *resourceProvisioner, rid, aid, fid string) *replica {
 	return &replica{
-		Runner:			&godes.Runner{},
-		arrivalCond:    godes.NewBooleanControl(),
-		arrivalQueue:	godes.NewFIFOQueue("arrival"),
-		frp:			frp,
-		replicaID:		rid,
-		appID:			aid,
-		funcID:			fid,
+		Runner:       &godes.Runner{},
+		arrivalCond:  godes.NewBooleanControl(),
+		arrivalQueue: godes.NewFIFOQueue("arrival"),
+		frp:          frp,
+		replicaID:    rid,
+		appID:        aid,
+		funcID:       fid,
 	}
 }
 
@@ -58,11 +60,13 @@ func (r *replica) Run() {
 		i.setProcessedTs(godes.GetSystemTime())
 		i.updateHopResponse(dur)
 		r.frp.setAvailable(r)
-		if r.terminated { break }
+		if r.terminated {
+			break
+		}
 		r.arrivalCond.Set(false)
 	}
 }
 
-func (r *replica) getOutPut() [][]string {
-	return [][]string{"", "", ""}
+func (r *replica) getOutPut() string {
+	return 	r.replicaID + " " + r.appID + " " + r.funcID
 }

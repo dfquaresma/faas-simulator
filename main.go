@@ -2,18 +2,18 @@ package main
 
 import (
 	"encoding/csv"
-	"os"
 	"log"
+	"os"
 
-	"github.com/spf13/viper"
 	"github.com/dfquaresma/faas-simulator/common"
+	"github.com/spf13/viper"
 )
 
 func main() {
 	viper.SetConfigFile("config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Fatalf("Failed to read config file:", err)
+		log.Fatalf("Failed to read config file: %s", err)
 		return
 	}
 
@@ -31,12 +31,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	selector :=  common.NewSelector()
-	replayer :=  common.NewReplayer(invocations, selector)
+	selector := common.NewSelector()
+	replayer := common.NewReplayer(invocations, selector)
 	replayer.Run()
 
-	writeOutput(outputPath + "-invocations.csv", invocations.GetOutPut())
-	writeOutput(outputPath + "-replicas.csv", selector.GetOutPut())
+	writeOutput(outputPath+"-invocations.csv", invocations.GetOutPut())
+	writeOutput(outputPath+"-replicas.csv", selector.GetOutPut())
 
 }
 

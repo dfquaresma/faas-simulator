@@ -1,0 +1,10 @@
+{
+    "tracePath": "./input_sample.csv",
+    "outputPath": "./output_sample.csv",
+    "simulationSettings": {
+      "tailLatencyProb": 5,
+      "Coldstart": 1000,
+      "TailLatency": 100,
+      "Idletime": 0
+    }
+}

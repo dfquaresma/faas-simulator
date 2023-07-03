@@ -3,23 +3,29 @@ package main
 import (
 	"encoding/csv"
 	"os"
-	"flag"
 	"log"
 
+	"github.com/spf13/viper"
 	"github.com/dfquaresma/faas-simulator/common"
 )
 
-var (
-	tracePath  = flag.String("trace", "", "Comma-separated trace file to reproduce in simulation")
-	outputPath = flag.String("output", "", "file path to output results")
-)
-
 func main() {
-	flag.Parse()
+	viper.SetConfigFile("config.json")
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Fatalf("Failed to read config file:", err)
+		return
+	}
 
-	validateParams(*tracePath, *outputPath)
+	tracePath := viper.GetString("tracePath")
+	outputPath := viper.GetString("outputPath")
+	tailLatencyProb := viper.GetString("simulationSettings.tailLatencyProb")
+	Coldstart := viper.GetString("simulationSettings.Coldstart")
+	TailLatency := viper.GetString("simulationSettings.TailLatency")
+	Idletime := viper.GetString("simulationSettings.Idletime")
+	log.Printf("Config: %s, %s, %s, %s, %s, %s", tracePath, outputPath, tailLatencyProb, Coldstart, TailLatency, Idletime)
 
-	rows := readInput(*tracePath)
+	rows := readInput(tracePath)
 
 	invocations, err := common.NewInvocations(rows)
 	if err != nil {
@@ -29,18 +35,9 @@ func main() {
 	replayer :=  common.NewReplayer(invocations, selector)
 	replayer.Run()
 
-	writeOutput(*outputPath + "invocations.csv", invocations.GetOutPut())
-	writeOutput(*outputPath + "replicas.csv", selector.GetOutPut())
+	writeOutput(outputPath + "-invocations.csv", invocations.GetOutPut())
+	writeOutput(outputPath + "-replicas.csv", selector.GetOutPut())
 
-}
-
-func validateParams(tracePath, outputPath string) {
-	if tracePath == "" {
-		log.Fatalf("A trace path must be given!")
-	}
-	if outputPath == "" {
-		log.Fatalf("An output path must be given!")
-	}
 }
 
 func readInput(tracePath string) [][]string {

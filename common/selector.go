@@ -12,11 +12,17 @@ type iSelector interface {
 
 type selector struct {
 	*godes.Runner
+	arrivalCond  *godes.BooleanControl
+	arrivalQueue *godes.FIFOQueue
 	provisioners map[string]*resourceProvisioner
+	terminated   bool
 }
 
 func NewSelector() *selector {
 	return &selector{
+		Runner:       &godes.Runner{},
+		arrivalCond:  godes.NewBooleanControl(),
+		arrivalQueue: godes.NewFIFOQueue("arrival"),
 		provisioners: make(map[string]*resourceProvisioner),
 	}
 }
@@ -35,14 +41,32 @@ func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
 }
 
 func (fs *selector) forward(i *invocation) {
-	frp, exist := fs.getProvisioner(i.getFuncID())
-	if !exist {
-		frp = fs.newProvisioner(i.getAppID(), i.getFuncID())
+	fs.arrivalQueue.Place(i)
+	fs.arrivalCond.Set(true)
+}
+
+func (fs *selector) Run() {
+	for {
+		fs.arrivalCond.Wait(true)
+		if fs.arrivalQueue.Len() > 0 {
+			i := fs.arrivalQueue.Get().(*invocation)
+			frp, exist := fs.getProvisioner(i.getFuncID())
+			if !exist {
+				frp = fs.newProvisioner(i.getAppID(), i.getFuncID())
+			}
+			frp.forward(i)
+			continue
+		}
+		fs.arrivalCond.Set(false)
+		if fs.terminated {
+			break
+		}
 	}
-	frp.forward(i)
 }
 
 func (fs *selector) terminate() {
+	fs.terminated = true
+	fs.arrivalCond.Set(true)
 	for _, frp := range fs.provisioners {
 		frp.terminate()
 	}

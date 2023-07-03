@@ -1,8 +1,9 @@
 package common
 
 import (
-	"strconv"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 type iInvocation interface {
@@ -162,11 +163,29 @@ func toTraceEntry(row []string) (*traceEntry, error) {
 }
 
 func (i *invocation) getOutPut() []string {
-	return []string{"", "", ""}
+	hopResponsesStr := make([]string, len(i.im.hopResponses))
+	for i, f := range i.im.hopResponses {
+		hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return []string{
+		i.te.appID,
+		i.te.funcID,
+		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
+		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
+		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
+		strconv.Itoa(i.im.id),
+		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
+		strconv.FormatFloat(i.im.processedTs, 'f', -1, 64),
+		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
+		strings.Join(i.im.hops, ";"),
+		strings.Join(hopResponsesStr, ";"),
+	}
 }
 
 func (i *invocations) GetOutPut() [][]string {
 	res := [][]string{}
+	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses"}
+	res = append(res, header)
 	for _, inv := range i.invocations {
 		res = append(res, inv.getOutPut())
 	}

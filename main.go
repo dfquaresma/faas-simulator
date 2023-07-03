@@ -19,11 +19,6 @@ func main() {
 
 	tracePath := viper.GetString("tracePath")
 	outputPath := viper.GetString("outputPath")
-	tailLatencyProb := viper.GetString("simulationSettings.tailLatencyProb")
-	Coldstart := viper.GetString("simulationSettings.Coldstart")
-	TailLatency := viper.GetString("simulationSettings.TailLatency")
-	Idletime := viper.GetString("simulationSettings.Idletime")
-	log.Printf("Config: %s, %s, %s, %s, %s, %s", tracePath, outputPath, tailLatencyProb, Coldstart, TailLatency, Idletime)
 
 	rows := readInput(tracePath)
 
@@ -37,7 +32,6 @@ func main() {
 
 	writeOutput(outputPath+"-invocations.csv", invocations.GetOutPut())
 	writeOutput(outputPath+"-replicas.csv", selector.GetOutPut())
-
 }
 
 func readInput(tracePath string) [][]string {
@@ -52,7 +46,7 @@ func readInput(tracePath string) [][]string {
 	if err != nil {
 		panic(err)
 	}
-	return rows
+	return rows[1:]
 }
 
 func writeOutput(outputPath string, data [][]string) {

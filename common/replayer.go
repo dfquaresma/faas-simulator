@@ -21,8 +21,11 @@ func NewReplayer(invocations *invocations, selector *selector) *replayer {
 func (tr *replayer) Run() {
 	godes.AddRunner(tr.selector)
 	godes.Run()
+	previousTs := 0.0
 	for i := tr.invocations.next(); i != nil; i = tr.invocations.next() {
-		godes.Advance(i.getStartTS())
+		currStartTs := i.getStartTS()
+		godes.Advance(currStartTs - previousTs)
+		previousTs = currStartTs
 		i.setForwardedTs(godes.GetSystemTime())
 		tr.selector.forward(i)
 	}

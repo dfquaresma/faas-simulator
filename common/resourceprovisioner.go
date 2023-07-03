@@ -1,8 +1,9 @@
 package common
 
 import (
-	"github.com/agoussia/godes"
 	"fmt"
+
+	"github.com/agoussia/godes"
 )
 
 type iResourceProvisioner interface {
@@ -54,6 +55,7 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 	}
 	rid := fmt.Sprintf("%d", len(frp.replicas))
 	replica := newReplica(frp, rid, frp.appID, frp.funcID)
+	godes.AddRunner(replica)
 	frp.replicas = append(frp.replicas, replica)
 	return replica
 }
@@ -74,10 +76,10 @@ func (frp *resourceProvisioner) Run() {
 			frp.getAvailableReplica().process(i)
 			continue
 		}
+		frp.arrivalCond.Set(false)
 		if frp.terminated {
 			break
 		}
-		frp.arrivalCond.Set(false)
 	}
 }
 

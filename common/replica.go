@@ -2,6 +2,7 @@ package common
 
 import (
 	"time"
+
 	"github.com/agoussia/godes"
 )
 
@@ -52,21 +53,23 @@ func (r *replica) terminate() {
 func (r *replica) Run() {
 	for {
 		r.arrivalCond.Wait(true)
-		i := r.arrivalQueue.Get().(*invocation)
-		i.updateHops(r.replicaID)
-		dur := i.getDuration() + r.tailLatency()
-		godes.Advance(dur)
+		if r.arrivalQueue.Len() > 0 {
+			i := r.arrivalQueue.Get().(*invocation)
+			i.updateHops(r.replicaID)
+			dur := i.getDuration() + r.tailLatency()
+			godes.Advance(dur)
 
-		i.setProcessedTs(godes.GetSystemTime())
-		i.updateHopResponse(dur)
-		r.frp.setAvailable(r)
+			i.setProcessedTs(godes.GetSystemTime())
+			i.updateHopResponse(dur)
+			r.frp.setAvailable(r)
+		}
+		r.arrivalCond.Set(false)
 		if r.terminated {
 			break
 		}
-		r.arrivalCond.Set(false)
 	}
 }
 
 func (r *replica) getOutPut() string {
-	return 	r.replicaID + " " + r.appID + " " + r.funcID
+	return r.replicaID + " " + r.appID + " " + r.funcID
 }

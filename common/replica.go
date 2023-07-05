@@ -2,6 +2,7 @@ package common
 
 import (
 	"time"
+	"strconv"
 
 	"github.com/agoussia/godes"
 )
@@ -22,6 +23,9 @@ type replica struct {
 	funcID           string
 	idlenessDeadline time.Duration
 	terminated       bool
+	busyTime         float64
+	upTime           float64
+	reqsProcessed    int
 }
 
 func newReplica(frp *resourceProvisioner, rid, aid, fid string) *replica {
@@ -51,6 +55,7 @@ func (r *replica) terminate() {
 }
 
 func (r *replica) Run() {
+	start := godes.GetSystemTime()
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
@@ -58,18 +63,29 @@ func (r *replica) Run() {
 			i.updateHops(r.replicaID)
 			dur := i.getDuration() + r.tailLatency()
 			godes.Advance(dur)
+			r.busyTime += dur
 
 			i.setProcessedTs(godes.GetSystemTime())
 			i.updateHopResponse(dur)
 			r.frp.setAvailable(r)
+			r.reqsProcessed += 1
 		}
 		r.arrivalCond.Set(false)
 		if r.terminated {
+			r.upTime = godes.GetSystemTime() - start
 			break
 		}
 	}
 }
 
-func (r *replica) getOutPut() string {
-	return r.replicaID + " " + r.appID + " " + r.funcID
+func (r *replica) getOutPut() []string {
+	return []string{
+		r.replicaID,
+		r.frp.frpID,
+		r.appID,
+		r.funcID,
+		strconv.FormatFloat(r.busyTime, 'f', -1, 64),
+		strconv.FormatFloat(r.upTime, 'f', -1, 64),		
+		strconv.Itoa(r.reqsProcessed),
+	}
 }

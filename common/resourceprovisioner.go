@@ -35,7 +35,7 @@ func newResourceProvisioner(aid, fid string) *resourceProvisioner {
 		availableReplicas: godes.NewLIFOQueue("available"),
 		appID:             aid,
 		funcID:            fid,
-		frpID:             aid + fid,
+		frpID:             aid + "-" + fid,
 		replicas:          make([]*replica, 0),
 	}
 }
@@ -83,8 +83,8 @@ func (frp *resourceProvisioner) Run() {
 	}
 }
 
-func (frp *resourceProvisioner) getOutPut() []string {
-	res := []string{}
+func (frp *resourceProvisioner) getOutPut() [][]string {
+	res := [][]string{}
 	for _, r := range frp.replicas {
 		res = append(res, r.getOutPut())
 	}

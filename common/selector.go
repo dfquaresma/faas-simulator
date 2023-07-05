@@ -27,15 +27,17 @@ func NewSelector() *selector {
 	}
 }
 
-func (fs *selector) getProvisioner(fid string) (*resourceProvisioner, bool) {
-	frp := fs.provisioners[fid]
-	bo := frp != nil
-	return frp, bo
+func (fs *selector) getProvisioner(aid, fid string) (*resourceProvisioner) {
+	frp := fs.provisioners[aid + fid]
+	if frp == nil {
+		frp = fs.newProvisioner(aid, fid)
+	}
+	return frp
 }
 
 func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
 	frp := newResourceProvisioner(aid, fid)
-	fs.provisioners[fid] = frp
+	fs.provisioners[aid + fid] = frp
 	godes.AddRunner(frp)
 	return frp
 }
@@ -50,10 +52,7 @@ func (fs *selector) Run() {
 		fs.arrivalCond.Wait(true)
 		if fs.arrivalQueue.Len() > 0 {
 			i := fs.arrivalQueue.Get().(*invocation)
-			frp, exist := fs.getProvisioner(i.getFuncID())
-			if !exist {
-				frp = fs.newProvisioner(i.getAppID(), i.getFuncID())
-			}
+			frp := fs.getProvisioner(i.getAppID(), i.getFuncID())
 			frp.forward(i)
 			continue
 		}
@@ -74,8 +73,12 @@ func (fs *selector) terminate() {
 
 func (fs *selector) GetOutPut() [][]string {
 	res := [][]string{}
+	header := []string{"replicaID", "frpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed"}
+	res = append(res, header)
 	for _, frp := range fs.provisioners {
-		res = append(res, frp.getOutPut())
+		for _, o := range frp.getOutPut() {
+			res = append(res, o)
+		} 
 	}
 	return res
 }

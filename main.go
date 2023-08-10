@@ -18,18 +18,25 @@ func main() {
 	}
 
 	tracePath := viper.GetString("tracePath")
-	outputPath := viper.GetString("outputPath")
-
 	rows := readInput(tracePath)
 
 	invocations, err := common.NewInvocations(rows)
 	if err != nil {
 		panic(err)
 	}
-	selector := common.NewSelector()
+
+	cfg := common.Config{
+		ColdstartLatency:  viper.GetFloat64("resourceProvisioner.coldstartLatency"),
+		ForwardLatency:    viper.GetFloat64("resourceProvisioner.forwardLatency"),
+		Idletime:          viper.GetFloat64("resourceProvisioner.idletime"),
+		TailLatency:       viper.GetFloat64("replica.tailLatency"),
+		TailLatencyProb:   viper.GetFloat64("replica.tailLatencyProb"),
+	}
+	selector := common.NewSelector(cfg)
 	replayer := common.NewReplayer(invocations, selector)
 	replayer.Run()
 
+	outputPath := viper.GetString("outputPath")
 	writeOutput(outputPath+"-invocations.csv", invocations.GetOutPut())
 	writeOutput(outputPath+"-replicas.csv", selector.GetOutPut())
 }

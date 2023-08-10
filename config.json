@@ -1,10 +1,13 @@
 {
     "tracePath": "./input_sample.csv",
-    "outputPath": "./output_sample.csv",
-    "simulationSettings": {
-      "tailLatencyProb": 5,
-      "Coldstart": 1000,
-      "TailLatency": 100,
-      "Idletime": 0
+    "outputPath": "./output_sample",
+    "resourceProvisioner": {
+      "forwardLatency": 0.5,
+      "coldstartLatency": 1000.0,
+      "idletime": 0.0
+    },
+    "replica": {
+      "tailLatencyProb": 5.0,
+      "tailLatency": 100.0
     }
 }

@@ -10,20 +10,30 @@ type iSelector interface {
 	getOutPut() [][]string
 }
 
+type Config struct {
+	ColdstartLatency  float64
+	ForwardLatency	  float64
+	Idletime          float64
+	TailLatency       float64
+	TailLatencyProb   float64
+}
+
 type selector struct {
 	*godes.Runner
 	arrivalCond  *godes.BooleanControl
 	arrivalQueue *godes.FIFOQueue
 	provisioners map[string]*resourceProvisioner
 	terminated   bool
+	cfg 		 Config
 }
 
-func NewSelector() *selector {
+func NewSelector(cfg Config) *selector {
 	return &selector{
 		Runner:       &godes.Runner{},
 		arrivalCond:  godes.NewBooleanControl(),
 		arrivalQueue: godes.NewFIFOQueue("arrival"),
 		provisioners: make(map[string]*resourceProvisioner),
+		cfg:  cfg,
 	}
 }
 
@@ -36,7 +46,7 @@ func (fs *selector) getProvisioner(aid, fid string) (*resourceProvisioner) {
 }
 
 func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
-	frp := newResourceProvisioner(aid, fid)
+	frp := newResourceProvisioner(aid, fid, fs.cfg)
 	fs.provisioners[aid + fid] = frp
 	godes.AddRunner(frp)
 	return frp

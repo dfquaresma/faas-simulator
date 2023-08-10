@@ -25,18 +25,22 @@ type replica struct {
 	terminated       bool
 	busyTime         float64
 	upTime           float64
+	tailLatency      float64
+	tailLatencyProb  float64
 	reqsProcessed    int
 }
 
-func newReplica(frp *resourceProvisioner, rid, aid, fid string) *replica {
+func newReplica(frp *resourceProvisioner, rid, aid, fid string, tl, tlp float64) *replica {
 	return &replica{
-		Runner:       &godes.Runner{},
-		arrivalCond:  godes.NewBooleanControl(),
-		arrivalQueue: godes.NewFIFOQueue("arrival"),
-		frp:          frp,
-		replicaID:    rid,
-		appID:        aid,
-		funcID:       fid,
+		Runner:          &godes.Runner{},
+		arrivalCond:     godes.NewBooleanControl(),
+		arrivalQueue:    godes.NewFIFOQueue("arrival"),
+		frp:             frp,
+		replicaID:       rid,
+		appID:           aid,
+		funcID:          fid,
+		tailLatency:     tl,
+		tailLatencyProb: tlp,
 	}
 }
 
@@ -45,8 +49,8 @@ func (r *replica) process(i *invocation) {
 	r.arrivalCond.Set(true)
 }
 
-func (r *replica) tailLatency() float64 {
-	return 0
+func (r *replica) getTailLatency() float64 {
+	return r.tailLatency
 }
 
 func (r *replica) terminate() {
@@ -61,7 +65,7 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*invocation)
 			i.updateHops(r.replicaID)
-			dur := i.getDuration() + r.tailLatency()
+			dur := i.getDuration() + r.getTailLatency()
 			godes.Advance(dur)
 			r.busyTime += dur
 

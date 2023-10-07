@@ -12,10 +12,11 @@ type iInvocation interface {
 	getDuration() float64
 	getStartTS() float64
 	getEndTS() float64
-	getID() int64
+	getID() string
 	getOutPut() []string
 	setForwardedTs(ft float64)
 	setProcessedTs(ft float64)
+	setDuration(nd float64)
 	updateHops(replicaID string)
 	updateHopResponse(hopResponse float64)
 }
@@ -34,7 +35,7 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	id           int
+	id           string
 	forwardedTs  float64
 	processedTs  float64
 	responseTime float64
@@ -42,10 +43,30 @@ type invocationMetadata struct {
 	hopResponses []float64
 }
 
-func newInvocation(id int, te traceEntry) *invocation {
+func newInvocation(id string, te traceEntry) *invocation {
 	return &invocation{
 		te: te,
 		im: invocationMetadata{id: id},
+	}
+}
+
+func copyInvocation(i *invocation) *invocation {
+	return &invocation{
+		te: traceEntry{
+			appID:    i.te.appID,
+			funcID:   i.te.funcID,
+			duration: i.te.duration,
+			endTS:    i.te.endTS,
+			startTS:  i.te.startTS,
+		},
+		im: invocationMetadata{
+			id:           i.im.id,
+			forwardedTs:  i.im.forwardedTs,
+			processedTs:  i.im.processedTs,
+			responseTime: i.im.responseTime,
+			hops:         i.im.hops,
+			hopResponses: i.im.hopResponses,
+		},
 	}
 }
 
@@ -69,8 +90,8 @@ func (i *invocation) getEndTS() float64 {
 	return i.te.endTS
 }
 
-func (i *invocation) getID() int64 {
-	return int64(i.im.id)
+func (i *invocation) getID() string {
+	return i.im.id
 }
 
 func (i *invocation) setForwardedTs(ft float64) {
@@ -79,6 +100,10 @@ func (i *invocation) setForwardedTs(ft float64) {
 
 func (i *invocation) setProcessedTs(pt float64) {
 	i.im.processedTs = pt
+}
+
+func (i *invocation) setDuration(nd float64) {
+	i.te.duration = nd
 }
 
 func (i *invocation) updateHops(replicaID string) {
@@ -109,7 +134,7 @@ func NewInvocations(rows [][]string) (*invocations, error) {
 		if err != nil {
 			return nil, err
 		}
-		invoc := newInvocation(id, *traceEntry)
+		invoc := newInvocation(strconv.Itoa(id), *traceEntry)
 		invocs = append(invocs, *invoc)
 	}
 
@@ -173,7 +198,7 @@ func (i *invocation) getOutPut() []string {
 		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
 		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
 		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
-		strconv.Itoa(i.im.id),
+		i.im.id,
 		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
 		strconv.FormatFloat(i.im.processedTs, 'f', -1, 64),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),

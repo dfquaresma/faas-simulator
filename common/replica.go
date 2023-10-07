@@ -1,8 +1,9 @@
 package common
 
 import (
-	"time"
+	"math/rand"
 	"strconv"
+	"time"
 
 	"github.com/agoussia/godes"
 )
@@ -50,7 +51,11 @@ func (r *replica) process(i *invocation) {
 }
 
 func (r *replica) getTailLatency() float64 {
-	return r.tailLatency
+	tailLatency := 0.0
+	if r.tailLatencyProb >= rand.Float64() {
+		tailLatency = r.tailLatency
+	}
+	return tailLatency
 }
 
 func (r *replica) terminate() {
@@ -65,12 +70,22 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*invocation)
 			i.updateHops(r.replicaID)
-			dur := i.getDuration() + r.getTailLatency()
+			tailLatency := r.getTailLatency()
+
+			shouldSkipReq, timeToWaste := r.frp.warnReqLatency(i, tailLatency)
+			if shouldSkipReq {
+				godes.Advance(timeToWaste)
+				r.busyTime += timeToWaste
+				r.frp.setAvailable(r)
+				continue
+			}
+
+			dur := i.getDuration() + tailLatency
 			godes.Advance(dur)
 			r.busyTime += dur
 
 			i.setProcessedTs(godes.GetSystemTime())
-			i.updateHopResponse(dur)
+			r.frp.response(i, dur)
 			r.frp.setAvailable(r)
 			r.reqsProcessed += 1
 		}
@@ -89,7 +104,7 @@ func (r *replica) getOutPut() []string {
 		r.appID,
 		r.funcID,
 		strconv.FormatFloat(r.busyTime, 'f', -1, 64),
-		strconv.FormatFloat(r.upTime, 'f', -1, 64),		
+		strconv.FormatFloat(r.upTime, 'f', -1, 64),
 		strconv.Itoa(r.reqsProcessed),
 	}
 }

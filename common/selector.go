@@ -16,6 +16,7 @@ type Config struct {
 	Idletime          float64
 	TailLatency       float64
 	TailLatencyProb   float64
+	Technique		  string
 }
 
 type selector struct {

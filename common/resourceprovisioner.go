@@ -8,7 +8,9 @@ import (
 
 type iResourceProvisioner interface {
 	forward(i *invocation)
+	response(i *invocation, d float64)
 	setAvailable(r *replica)
+	warnReqLatency(i *invocation, tl float64) (bool, float64)
 	terminate()
 	getOutPut() [][]string
 }
@@ -23,12 +25,13 @@ type resourceProvisioner struct {
 	funcID            string
 	frpID             string
 	terminated        bool
-	cfg 		 	  Config
+	cfg               Config
 	replicas          []*replica
+	technique         *technique
 }
 
 func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
-	return &resourceProvisioner{
+	frp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
 		availableCond:     godes.NewBooleanControl(),
@@ -38,13 +41,19 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 		funcID:            fid,
 		frpID:             aid + "-" + fid,
 		replicas:          make([]*replica, 0),
-		cfg:  			   cfg,
+		cfg:               cfg,
 	}
+	frp.technique = newTechnique(frp, cfg.Technique)
+	return frp
 }
 
 func (frp *resourceProvisioner) forward(i *invocation) {
 	frp.arrivalQueue.Place(i)
 	frp.arrivalCond.Set(true)
+}
+
+func (frp *resourceProvisioner) response(i *invocation, dur float64) {
+	frp.technique.processResponse(i, dur)
 }
 
 func (frp *resourceProvisioner) setAvailable(r *replica) {
@@ -56,7 +65,7 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 		return frp.availableReplicas.Get().(*replica)
 	}
 	rid := fmt.Sprintf("%d", len(frp.replicas))
-	replica := newReplica(frp, rid, frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb )
+	replica := newReplica(frp, rid, frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb)
 	godes.Advance(frp.cfg.ColdstartLatency)
 	godes.AddRunner(replica)
 	frp.replicas = append(frp.replicas, replica)
@@ -71,12 +80,16 @@ func (frp *resourceProvisioner) terminate() {
 	}
 }
 
+func (frp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
+	return frp.technique.processWarning(i, tl)
+}
+
 func (frp *resourceProvisioner) Run() {
 	for {
 		frp.arrivalCond.Wait(true)
 		if frp.arrivalQueue.Len() > 0 {
 			i := frp.arrivalQueue.Get().(*invocation)
-			r := frp.getAvailableReplica()	
+			r := frp.getAvailableReplica()
 			godes.Advance(frp.cfg.ForwardLatency)
 			r.process(i)
 			continue

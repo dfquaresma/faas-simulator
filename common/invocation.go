@@ -10,6 +10,7 @@ type iInvocation interface {
 	getAppID() string
 	getFuncID() string
 	getDuration() float64
+	getP95() float64
 	getStartTS() float64
 	getEndTS() float64
 	getID() string
@@ -30,6 +31,7 @@ type traceEntry struct {
 	appID    string
 	funcID   string
 	duration float64
+	p95      float64
 	endTS    float64
 	startTS  float64
 }
@@ -80,6 +82,10 @@ func (i *invocation) getFuncID() string {
 
 func (i *invocation) getDuration() float64 {
 	return i.te.duration
+}
+
+func (i *invocation) getP95() float64 {
+	return i.te.p95
 }
 
 func (i *invocation) getStartTS() float64 {
@@ -178,10 +184,16 @@ func toTraceEntry(row []string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
+	p95, err := strconv.ParseFloat(row[5], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
+	}
+
 	return &traceEntry{
 		appID:    AppID,
 		funcID:   funcID,
 		duration: duration,
+		p95:      p95,
 		endTS:    endTS,
 		startTS:  startTS,
 	}, nil

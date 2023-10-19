@@ -20,7 +20,6 @@ type technique struct {
 	frp       *resourceProvisioner
 	iIdAidFid map[string]*invocation
 	iAidFid   map[string][]*invocation
-	p95       float64
 	config    string
 }
 
@@ -29,7 +28,6 @@ func newTechnique(frp *resourceProvisioner, t string) *technique {
 		frp:       frp,
 		iIdAidFid: make(map[string]*invocation),
 		iAidFid:   make(map[string][]*invocation),
-		p95:       0,
 		config:    t,
 	}
 }
@@ -62,11 +60,12 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 	case "RequestHedging95":
 		iCopy := copyInvocation(i)
 		iCopyDur := iCopy.getDuration()
-		if iCopyDur > t.p95 {
+		p95 := i.getP95()
+		if iCopyDur > p95 {
 			fInv := t.iAidFid[iCopy.getAppID()+iCopy.getFuncID()]
 			r := rand.New(rand.NewSource(time.Now().Unix()))
 			dur := fInv[r.Intn(len(fInv))].getDuration()
-			iCopy.setDuration(t.p95 + dur)
+			iCopy.setDuration(p95 + dur)
 			t.frp.arrivalQueue.Place(iCopy)
 			t.frp.arrivalCond.Set(true)
 		}

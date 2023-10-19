@@ -1,7 +1,7 @@
 package common
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/agoussia/godes"
 )
@@ -18,6 +18,7 @@ type iResourceProvisioner interface {
 type resourceProvisioner struct {
 	*godes.Runner
 	arrivalCond       *godes.BooleanControl
+	terminatedCond    *godes.BooleanControl
 	availableCond     *godes.BooleanControl
 	arrivalQueue      *godes.FIFOQueue
 	availableReplicas *godes.LIFOQueue
@@ -34,6 +35,7 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 	frp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
+		terminatedCond:    godes.NewBooleanControl(),
 		availableCond:     godes.NewBooleanControl(),
 		arrivalQueue:      godes.NewFIFOQueue("arrival"),
 		availableReplicas: godes.NewLIFOQueue("available"),
@@ -61,11 +63,14 @@ func (frp *resourceProvisioner) setAvailable(r *replica) {
 }
 
 func (frp *resourceProvisioner) getAvailableReplica() *replica {
-	if frp.availableReplicas.Len() > 0 {
-		return frp.availableReplicas.Get().(*replica)
+	for frp.availableReplicas.Len() > 0 {
+		r := frp.availableReplicas.Get().(*replica)
+		if godes.GetSystemTime()-r.lastWorkTS < frp.cfg.Idletime {
+			return r
+		}
+		r.terminate()
 	}
-	rid := fmt.Sprintf("%d", len(frp.replicas))
-	replica := newReplica(frp, rid, frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb)
+	replica := newReplica(frp, time.Now().String(), frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb, frp.cfg.Idletime)
 	godes.Advance(frp.cfg.ColdstartLatency)
 	godes.AddRunner(replica)
 	frp.replicas = append(frp.replicas, replica)
@@ -75,6 +80,7 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 func (frp *resourceProvisioner) terminate() {
 	frp.terminated = true
 	frp.arrivalCond.Set(true)
+	frp.terminatedCond.Wait(true)
 	for _, r := range frp.replicas {
 		r.terminate()
 	}
@@ -96,6 +102,7 @@ func (frp *resourceProvisioner) Run() {
 		}
 		frp.arrivalCond.Set(false)
 		if frp.terminated {
+			frp.terminatedCond.Set(true)
 			break
 		}
 	}

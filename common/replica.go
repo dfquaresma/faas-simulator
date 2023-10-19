@@ -1,6 +1,7 @@
 package common
 
 import (
+	"math"
 	"math/rand"
 	"strconv"
 	"time"
@@ -22,8 +23,10 @@ type replica struct {
 	replicaID        string
 	appID            string
 	funcID           string
-	idlenessDeadline time.Duration
 	terminated       bool
+	idlenessDeadline float64
+	startTS          float64
+	lastWorkTS       float64
 	busyTime         float64
 	upTime           float64
 	tailLatency      float64
@@ -31,17 +34,18 @@ type replica struct {
 	reqsProcessed    int
 }
 
-func newReplica(frp *resourceProvisioner, rid, aid, fid string, tl, tlp float64) *replica {
+func newReplica(frp *resourceProvisioner, rid, aid, fid string, tl, tlp, idl float64) *replica {
 	return &replica{
-		Runner:          &godes.Runner{},
-		arrivalCond:     godes.NewBooleanControl(),
-		arrivalQueue:    godes.NewFIFOQueue("arrival"),
-		frp:             frp,
-		replicaID:       rid,
-		appID:           aid,
-		funcID:          fid,
-		tailLatency:     tl,
-		tailLatencyProb: tlp,
+		Runner:           &godes.Runner{},
+		arrivalCond:      godes.NewBooleanControl(),
+		arrivalQueue:     godes.NewFIFOQueue("arrival"),
+		frp:              frp,
+		replicaID:        rid,
+		appID:            aid,
+		funcID:           fid,
+		tailLatency:      tl,
+		tailLatencyProb:  tlp,
+		idlenessDeadline: idl,
 	}
 }
 
@@ -52,6 +56,7 @@ func (r *replica) process(i *invocation) {
 
 func (r *replica) getTailLatency() float64 {
 	tailLatency := 0.0
+	rand.Seed(time.Now().UnixNano())
 	if r.tailLatencyProb >= rand.Float64() {
 		tailLatency = r.tailLatency
 	}
@@ -64,7 +69,7 @@ func (r *replica) terminate() {
 }
 
 func (r *replica) Run() {
-	start := godes.GetSystemTime()
+	r.startTS = godes.GetSystemTime()
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
@@ -76,6 +81,7 @@ func (r *replica) Run() {
 			if shouldSkipReq {
 				godes.Advance(timeToWaste)
 				r.busyTime += timeToWaste
+				r.lastWorkTS = godes.GetSystemTime()
 				r.frp.setAvailable(r)
 				continue
 			}
@@ -84,14 +90,16 @@ func (r *replica) Run() {
 			godes.Advance(dur)
 			r.busyTime += dur
 
-			i.setProcessedTs(godes.GetSystemTime())
+			r.lastWorkTS = godes.GetSystemTime()
+			i.setProcessedTs(r.lastWorkTS)
 			r.frp.response(i, dur)
 			r.frp.setAvailable(r)
 			r.reqsProcessed += 1
 		}
 		r.arrivalCond.Set(false)
 		if r.terminated {
-			r.upTime = godes.GetSystemTime() - start
+			shutdownTS := math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
+			r.upTime = shutdownTS - r.startTS
 			break
 		}
 	}

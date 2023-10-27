@@ -16,10 +16,15 @@ type iInvocation interface {
 	getID() string
 	getOutPut() []string
 	setForwardedTs(ft float64)
-	setProcessedTs(ft float64)
+	addProcessedTs(ft float64)
+	getLastProcessedTs() float64
 	setDuration(nd float64)
 	updateHops(replicaID string)
+	getLastHop() string
 	updateHopResponse(hopResponse float64)
+	getLastHopResponse() float64
+	hasHops() bool
+	removeLastHop()
 }
 
 type invocation struct {
@@ -39,7 +44,7 @@ type traceEntry struct {
 type invocationMetadata struct {
 	id           string
 	forwardedTs  float64
-	processedTs  float64
+	processedTs  []float64
 	responseTime float64
 	hops         []string
 	hopResponses []float64
@@ -104,8 +109,12 @@ func (i *invocation) setForwardedTs(ft float64) {
 	i.im.forwardedTs = ft
 }
 
-func (i *invocation) setProcessedTs(pt float64) {
-	i.im.processedTs = pt
+func (i *invocation) addProcessedTs(pt float64) {
+	i.im.processedTs = append(i.im.processedTs, pt)
+}
+
+func (i *invocation) getLastProcessedTs() float64 {
+	return i.im.processedTs[len(i.im.processedTs)-1]
 }
 
 func (i *invocation) setDuration(nd float64) {
@@ -116,9 +125,28 @@ func (i *invocation) updateHops(replicaID string) {
 	i.im.hops = append(i.im.hops, replicaID)
 }
 
+func (i *invocation) getLastHop() string {
+	return i.im.hops[len(i.im.hops)-1]
+}
+
 func (i *invocation) updateHopResponse(hopResponse float64) {
 	i.im.hopResponses = append(i.im.hopResponses, hopResponse)
 	i.im.responseTime += hopResponse
+}
+
+func (i *invocation) getLastHopResponse() float64 {
+	return i.im.hopResponses[len(i.im.hopResponses)-1]
+}
+
+func (i *invocation) hasHops() bool {
+	return len(i.im.hops) != 0 && len(i.im.hopResponses) != 0
+}
+
+func (i *invocation) removeLastHop() {
+	if i.hasHops() {
+		i.im.hops = i.im.hops[:len(i.im.hops)-1]
+		i.im.hopResponses = i.im.hopResponses[:len(i.im.hopResponses)-1]
+	}
 }
 
 type iInvocations interface {
@@ -204,6 +232,10 @@ func (i *invocation) getOutPut() []string {
 	for i, f := range i.im.hopResponses {
 		hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
+	processedTsStr := make([]string, len(i.im.processedTs))
+	for i, f := range i.im.processedTs {
+		processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	}
 	return []string{
 		i.te.appID,
 		i.te.funcID,
@@ -212,7 +244,7 @@ func (i *invocation) getOutPut() []string {
 		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
 		i.im.id,
 		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
-		strconv.FormatFloat(i.im.processedTs, 'f', -1, 64),
+		strings.Join(processedTsStr, ";"),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
 		strings.Join(i.im.hops, ";"),
 		strings.Join(hopResponsesStr, ";"),

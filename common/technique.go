@@ -1,10 +1,8 @@
 package common
 
 import (
-	"math"
 	"math/rand"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/agoussia/godes"
@@ -76,15 +74,13 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 	}
 }
 
-func (t *technique) processResponse(inv *invocation, dur float64) {
-	inv.updateHopResponse(dur)
+func (t *technique) processResponse(i *invocation) {
 	if t.config == "RequestHedgingDefault" || t.config == "RequestHedging95" {
-		i := t.iIdAidFid[inv.getID()+inv.getAppID()+inv.getFuncID()]
-		iHops := i.im.hops
-		invCopyHops := inv.im.hops
-		if len(iHops) == len(invCopyHops) && !reflect.DeepEqual(iHops, invCopyHops) {
-			iLastHop, _ := strconv.ParseFloat(iHops[:len(iHops)-1][0], 64)
-			i.updateHopResponse(math.Min(iLastHop, dur))
+		iRef := t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()]
+		if !reflect.DeepEqual(i, iRef) {
+			iRef.updateHops(i.getLastHop())
+			iRef.updateHopResponse(i.getLastHopResponse())
+			iRef.addProcessedTs(i.getLastProcessedTs())
 		}
 	}
 }

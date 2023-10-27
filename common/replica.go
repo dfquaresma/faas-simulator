@@ -91,8 +91,9 @@ func (r *replica) Run() {
 			r.busyTime += dur
 
 			r.lastWorkTS = godes.GetSystemTime()
-			i.setProcessedTs(r.lastWorkTS)
-			r.frp.response(i, dur)
+			i.addProcessedTs(r.lastWorkTS)
+			i.updateHopResponse(dur)
+			r.frp.response(i)
 			r.frp.setAvailable(r)
 			r.reqsProcessed += 1
 		}

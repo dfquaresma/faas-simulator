@@ -26,11 +26,12 @@ func main() {
 	}
 
 	cfg := common.Config{
-		ColdstartLatency:  viper.GetFloat64("resourceProvisioner.coldstartLatency"),
-		ForwardLatency:    viper.GetFloat64("resourceProvisioner.forwardLatency"),
-		Idletime:          viper.GetFloat64("resourceProvisioner.idletime"),
-		TailLatency:       viper.GetFloat64("replica.tailLatency"),
-		TailLatencyProb:   viper.GetFloat64("replica.tailLatencyProb"),
+		ColdstartLatency: viper.GetFloat64("resourceProvisioner.coldstartLatency"),
+		ForwardLatency:   viper.GetFloat64("resourceProvisioner.forwardLatency"),
+		Idletime:         viper.GetFloat64("resourceProvisioner.idletime"),
+		TailLatency:      viper.GetFloat64("replica.tailLatency"),
+		TailLatencyProb:  viper.GetFloat64("replica.tailLatencyProb"),
+		Technique:        viper.GetString("technique"),
 	}
 	selector := common.NewSelector(cfg)
 	replayer := common.NewReplayer(invocations, selector)

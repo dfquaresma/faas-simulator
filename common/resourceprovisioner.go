@@ -50,12 +50,11 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 }
 
 func (frp *resourceProvisioner) forward(i *invocation) {
-	frp.arrivalQueue.Place(i)
-	frp.arrivalCond.Set(true)
+	frp.technique.forward(frp, i)
 }
 
-func (frp *resourceProvisioner) response(i *invocation, dur float64) {
-	frp.technique.processResponse(i, dur)
+func (frp *resourceProvisioner) response(i *invocation) {
+	frp.technique.processResponse(i)
 }
 
 func (frp *resourceProvisioner) setAvailable(r *replica) {

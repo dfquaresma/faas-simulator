@@ -1,14 +1,16 @@
 package common
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/agoussia/godes"
 )
 
 type iResourceProvisioner interface {
 	forward(i *invocation)
+	response(i *invocation, d float64)
 	setAvailable(r *replica)
+	warnReqLatency(i *invocation, tl float64) (bool, float64)
 	terminate()
 	getOutPut() [][]string
 }
@@ -16,6 +18,7 @@ type iResourceProvisioner interface {
 type resourceProvisioner struct {
 	*godes.Runner
 	arrivalCond       *godes.BooleanControl
+	terminatedCond    *godes.BooleanControl
 	availableCond     *godes.BooleanControl
 	arrivalQueue      *godes.FIFOQueue
 	availableReplicas *godes.LIFOQueue
@@ -23,14 +26,16 @@ type resourceProvisioner struct {
 	funcID            string
 	frpID             string
 	terminated        bool
-	cfg 		 	  Config
+	cfg               Config
 	replicas          []*replica
+	technique         *technique
 }
 
 func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
-	return &resourceProvisioner{
+	frp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
+		terminatedCond:    godes.NewBooleanControl(),
 		availableCond:     godes.NewBooleanControl(),
 		arrivalQueue:      godes.NewFIFOQueue("arrival"),
 		availableReplicas: godes.NewLIFOQueue("available"),
@@ -38,13 +43,18 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 		funcID:            fid,
 		frpID:             aid + "-" + fid,
 		replicas:          make([]*replica, 0),
-		cfg:  			   cfg,
+		cfg:               cfg,
 	}
+	frp.technique = newTechnique(frp, cfg.Technique)
+	return frp
 }
 
 func (frp *resourceProvisioner) forward(i *invocation) {
-	frp.arrivalQueue.Place(i)
-	frp.arrivalCond.Set(true)
+	frp.technique.forward(frp, i)
+}
+
+func (frp *resourceProvisioner) response(i *invocation) {
+	frp.technique.processResponse(i)
 }
 
 func (frp *resourceProvisioner) setAvailable(r *replica) {
@@ -52,11 +62,14 @@ func (frp *resourceProvisioner) setAvailable(r *replica) {
 }
 
 func (frp *resourceProvisioner) getAvailableReplica() *replica {
-	if frp.availableReplicas.Len() > 0 {
-		return frp.availableReplicas.Get().(*replica)
+	for frp.availableReplicas.Len() > 0 {
+		r := frp.availableReplicas.Get().(*replica)
+		if godes.GetSystemTime()-r.lastWorkTS < frp.cfg.Idletime {
+			return r
+		}
+		r.terminate()
 	}
-	rid := fmt.Sprintf("%d", len(frp.replicas))
-	replica := newReplica(frp, rid, frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb )
+	replica := newReplica(frp, time.Now().String(), frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb, frp.cfg.Idletime)
 	godes.Advance(frp.cfg.ColdstartLatency)
 	godes.AddRunner(replica)
 	frp.replicas = append(frp.replicas, replica)
@@ -66,9 +79,14 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 func (frp *resourceProvisioner) terminate() {
 	frp.terminated = true
 	frp.arrivalCond.Set(true)
+	frp.terminatedCond.Wait(true)
 	for _, r := range frp.replicas {
 		r.terminate()
 	}
+}
+
+func (frp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
+	return frp.technique.processWarning(i, tl)
 }
 
 func (frp *resourceProvisioner) Run() {
@@ -76,13 +94,14 @@ func (frp *resourceProvisioner) Run() {
 		frp.arrivalCond.Wait(true)
 		if frp.arrivalQueue.Len() > 0 {
 			i := frp.arrivalQueue.Get().(*invocation)
-			r := frp.getAvailableReplica()	
+			r := frp.getAvailableReplica()
 			godes.Advance(frp.cfg.ForwardLatency)
 			r.process(i)
 			continue
 		}
 		frp.arrivalCond.Set(false)
 		if frp.terminated {
+			frp.terminatedCond.Set(true)
 			break
 		}
 	}

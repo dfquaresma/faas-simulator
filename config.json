@@ -1,13 +1,14 @@
 {
-    "tracePath": "./input_sample.csv",
-    "outputPath": "./output_sample",
-    "resourceProvisioner": {
-      "forwardLatency": 0.5,
-      "coldstartLatency": 1000.0,
-      "idletime": 0.0
-    },
-    "replica": {
-      "tailLatencyProb": 5.0,
-      "tailLatency": 100.0
-    }
+  "tracePath": "./input_sample.csv",
+  "outputPath": "./output_sample",
+  "technique": "GCI",
+  "resourceProvisioner": {
+    "forwardLatency": 0.0005,
+    "coldstartLatency": 3000.0,
+    "idletime": 0.0
+  },
+  "replica": {
+    "tailLatencyProb": 0.1,
+    "tailLatency": 1000.0
+  }
 }

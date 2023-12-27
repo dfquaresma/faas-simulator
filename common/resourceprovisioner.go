@@ -95,7 +95,6 @@ func (frp *resourceProvisioner) Run() {
 		if frp.arrivalQueue.Len() > 0 {
 			i := frp.arrivalQueue.Get().(*invocation)
 			r := frp.getAvailableReplica()
-			godes.Advance(frp.cfg.ForwardLatency)
 			r.process(i)
 			continue
 		}

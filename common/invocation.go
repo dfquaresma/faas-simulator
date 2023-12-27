@@ -25,6 +25,7 @@ type iInvocation interface {
 	getLastHopResponse() float64
 	hasHops() bool
 	removeLastHop()
+	resetResponseTime()
 }
 
 type invocation struct {
@@ -42,12 +43,17 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	id           string
-	forwardedTs  float64
-	processedTs  []float64
-	responseTime float64
-	hops         []string
-	hopResponses []float64
+	id              string
+	forwardedTs     float64
+	processedTs     []float64
+	responseTime    float64
+	hops            []string
+	hopResponses    []float64
+	rh_forwardedTs  float64
+	rh_processedTs  []float64
+	rh_responseTime float64
+	rh_hops         []string
+	rh_hopResponses []float64
 }
 
 func newInvocation(id string, te traceEntry) *invocation {
@@ -63,6 +69,7 @@ func copyInvocation(i *invocation) *invocation {
 			appID:    i.te.appID,
 			funcID:   i.te.funcID,
 			duration: i.te.duration,
+			p95:      i.te.p95,
 			endTS:    i.te.endTS,
 			startTS:  i.te.startTS,
 		},
@@ -71,8 +78,8 @@ func copyInvocation(i *invocation) *invocation {
 			forwardedTs:  i.im.forwardedTs,
 			processedTs:  i.im.processedTs,
 			responseTime: i.im.responseTime,
-			hops:         i.im.hops,
-			hopResponses: i.im.hopResponses,
+			hops:         []string{},
+			hopResponses: []float64{},
 		},
 	}
 }
@@ -134,6 +141,14 @@ func (i *invocation) updateHopResponse(hopResponse float64) {
 	i.im.responseTime += hopResponse
 }
 
+func (i *invocation) updateRhInvocationMetadata(rh_forwardedTs float64, rh_processedTs []float64, rh_responseTime float64, rh_hops []string, rh_hopResponses []float64) {
+	i.im.rh_forwardedTs = rh_forwardedTs
+	i.im.rh_processedTs = rh_processedTs
+	i.im.rh_responseTime = rh_responseTime
+	i.im.rh_hops = rh_hops
+	i.im.rh_hopResponses = rh_hopResponses
+}
+
 func (i *invocation) getLastHopResponse() float64 {
 	return i.im.hopResponses[len(i.im.hopResponses)-1]
 }
@@ -147,6 +162,10 @@ func (i *invocation) removeLastHop() {
 		i.im.hops = i.im.hops[:len(i.im.hops)-1]
 		i.im.hopResponses = i.im.hopResponses[:len(i.im.hopResponses)-1]
 	}
+}
+
+func (i *invocation) resetResponseTime() {
+	i.im.responseTime = 0
 }
 
 type iInvocations interface {
@@ -232,10 +251,19 @@ func (i *invocation) getOutPut() []string {
 	for i, f := range i.im.hopResponses {
 		hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
+	rh_hopResponsesStr := make([]string, len(i.im.rh_hopResponses))
+	for i, f := range i.im.rh_hopResponses {
+		rh_hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	}
 	processedTsStr := make([]string, len(i.im.processedTs))
 	for i, f := range i.im.processedTs {
 		processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
+	rh_processedTsStr := make([]string, len(i.im.rh_processedTs))
+	for i, f := range i.im.rh_processedTs {
+		rh_processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	}
+
 	return []string{
 		i.te.appID,
 		i.te.funcID,
@@ -248,12 +276,17 @@ func (i *invocation) getOutPut() []string {
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
 		strings.Join(i.im.hops, ";"),
 		strings.Join(hopResponsesStr, ";"),
+		strconv.FormatFloat(i.im.rh_forwardedTs, 'f', -1, 64),
+		strings.Join(rh_processedTsStr, ";"),
+		strconv.FormatFloat(i.im.rh_responseTime, 'f', -1, 64),
+		strings.Join(i.im.rh_hops, ";"),
+		strings.Join(rh_hopResponsesStr, ";"),
 	}
 }
 
 func (i *invocations) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses"}
+	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses"}
 	res = append(res, header)
 	for _, inv := range i.invocations {
 		res = append(res, inv.getOutPut())

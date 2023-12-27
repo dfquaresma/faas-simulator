@@ -74,6 +74,11 @@ func (r *replica) Run() {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*invocation)
+
+			forwardLatency := r.frp.cfg.ForwardLatency
+			godes.Advance(forwardLatency)
+			i.updateHopResponse(forwardLatency)
+
 			i.updateHops(r.replicaID)
 			tailLatency := r.getTailLatency()
 

@@ -1,11 +1,7 @@
 package common
 
 import (
-	"math/rand"
 	"reflect"
-	"time"
-
-	"github.com/agoussia/godes"
 )
 
 type iTechnique interface {
@@ -18,6 +14,7 @@ type technique struct {
 	frp       *resourceProvisioner
 	iIdAidFid map[string]*invocation
 	iAidFid   map[string][]*invocation
+	processed map[string]bool
 	config    string
 }
 
@@ -26,6 +23,7 @@ func newTechnique(frp *resourceProvisioner, t string) *technique {
 		frp:       frp,
 		iIdAidFid: make(map[string]*invocation),
 		iAidFid:   make(map[string][]*invocation),
+		processed: make(map[string]bool),
 		config:    t,
 	}
 }
@@ -49,23 +47,21 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 		shouldRedirectReq := tl > 0
 		if shouldRedirectReq {
 			r := t.frp.getAvailableReplica()
-			godes.Advance(t.frp.cfg.ForwardLatency)
-			i.updateHopResponse(t.frp.cfg.ForwardLatency)
 			r.process(i)
 		}
 		return shouldRedirectReq, tl
 
 	case "RequestHedging95":
-		iCopy := copyInvocation(i)
-		iCopyDur := iCopy.getDuration()
 		p95 := i.getP95()
-		if iCopyDur > p95 {
-			fInv := t.iAidFid[iCopy.getAppID()+iCopy.getFuncID()]
-			r := rand.New(rand.NewSource(time.Now().Unix()))
-			dur := fInv[r.Intn(len(fInv))].getDuration()
-			iCopy.setDuration(p95 + dur)
-			t.frp.arrivalQueue.Place(iCopy)
-			t.frp.arrivalCond.Set(true)
+		iId := i.getID() + i.getAppID() + i.getFuncID()
+		shouldHedge := tl+i.getDuration() > p95 && !t.processed[iId]
+		if shouldHedge {
+			t.processed[iId] = true
+			iCopy := copyInvocation(i)
+			iCopy.setDuration(p95 + i.getDuration())
+			iCopy.resetResponseTime()
+			rep := t.frp.getAvailableReplica()
+			rep.process(iCopy)
 		}
 		return false, 0
 
@@ -78,9 +74,13 @@ func (t *technique) processResponse(i *invocation) {
 	if t.config == "RequestHedgingDefault" || t.config == "RequestHedging95" {
 		iRef := t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()]
 		if !reflect.DeepEqual(i, iRef) {
-			iRef.updateHops(i.getLastHop())
-			iRef.updateHopResponse(i.getLastHopResponse())
-			iRef.addProcessedTs(i.getLastProcessedTs())
+			iRef.updateRhInvocationMetadata(
+				i.im.forwardedTs,
+				i.im.processedTs,
+				i.im.responseTime,
+				i.im.hops,
+				i.im.hopResponses,
+			)
 		}
 	}
 }

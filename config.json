@@ -3,8 +3,7 @@
   "outputPath": "./output_sample",
   "technique": "RequestHedging95",
   "resourceProvisioner": {
-    "forwardLatency": 10.0,
-    "coldstartLatency": 0.0,
+    "forwardLatency": 1.0,
     "idletime": 10000000.0
   },
   "replica": {

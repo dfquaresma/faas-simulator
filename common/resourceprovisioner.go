@@ -70,7 +70,6 @@ func (frp *resourceProvisioner) getAvailableReplica() *replica {
 		r.terminate()
 	}
 	replica := newReplica(frp, time.Now().String(), frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb, frp.cfg.Idletime)
-	godes.Advance(frp.cfg.ColdstartLatency)
 	godes.AddRunner(replica)
 	frp.replicas = append(frp.replicas, replica)
 	return replica

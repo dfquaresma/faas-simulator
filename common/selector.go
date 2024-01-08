@@ -11,12 +11,11 @@ type iSelector interface {
 }
 
 type Config struct {
-	ColdstartLatency float64
-	ForwardLatency   float64
-	Idletime         float64
-	TailLatency      float64
-	TailLatencyProb  float64
-	Technique        string
+	ForwardLatency  float64
+	Idletime        float64
+	TailLatency     float64
+	TailLatencyProb float64
+	Technique       string
 }
 
 type selector struct {

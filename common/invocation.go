@@ -28,6 +28,18 @@ type iInvocation interface {
 	resetResponseTime()
 }
 
+type iInvocations interface {
+	next() iInvocation
+	hasNext() bool
+	getOutPut() [][]string
+}
+
+type invocations struct {
+	iLen        int
+	iterator    int
+	invocations []invocation
+}
+
 type invocation struct {
 	te traceEntry
 	im invocationMetadata
@@ -168,18 +180,6 @@ func (i *invocation) resetResponseTime() {
 	i.im.responseTime = 0
 }
 
-type iInvocations interface {
-	next() iInvocation
-	hasNext() bool
-	getOutPut() [][]string
-}
-
-type invocations struct {
-	iLen        int
-	iterator    int
-	invocations []invocation
-}
-
 func NewInvocations(rows [][]string) (*invocations, error) {
 	invocs := make([]invocation, 0)
 	for id, row := range rows {
@@ -231,10 +231,11 @@ func toTraceEntry(row []string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	p95, err := strconv.ParseFloat(row[5], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
-	}
+	p95 := 0.0
+	//p95, err := strconv.ParseFloat(row[5], 64)
+	//if err != nil {
+	//	return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
+	//}
 
 	return &traceEntry{
 		appID:    AppID,

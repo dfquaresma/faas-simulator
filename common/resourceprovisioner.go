@@ -64,6 +64,9 @@ func (frp *resourceProvisioner) setAvailable(r *replica) {
 func (frp *resourceProvisioner) getAvailableReplica() *replica {
 	for frp.availableReplicas.Len() > 0 {
 		r := frp.availableReplicas.Get().(*replica)
+		if frp.cfg.Idletime < 0 {
+			return r
+		}
 		if godes.GetSystemTime()-r.lastWorkTS < frp.cfg.Idletime {
 			return r
 		}

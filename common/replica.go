@@ -18,12 +18,12 @@ type iReplica interface {
 type replica struct {
 	*godes.Runner
 	arrivalCond      *godes.BooleanControl
+	terminatedCond   *godes.BooleanControl
 	arrivalQueue     *godes.FIFOQueue
 	frp              *resourceProvisioner
 	replicaID        string
 	appID            string
 	funcID           string
-	terminated       bool
 	idlenessDeadline float64
 	startTS          float64
 	lastWorkTS       float64
@@ -38,6 +38,7 @@ func newReplica(frp *resourceProvisioner, rid, aid, fid string, tl, tlp, idl flo
 	return &replica{
 		Runner:           &godes.Runner{},
 		arrivalCond:      godes.NewBooleanControl(),
+		terminatedCond:   godes.NewBooleanControl(),
 		arrivalQueue:     godes.NewFIFOQueue("arrival"),
 		frp:              frp,
 		replicaID:        rid,
@@ -61,11 +62,6 @@ func (r *replica) getTailLatency() float64 {
 		tailLatency = r.tailLatency
 	}
 	return tailLatency
-}
-
-func (r *replica) terminate() {
-	r.terminated = true
-	r.arrivalCond.Set(true)
 }
 
 func (r *replica) Run() {
@@ -102,19 +98,26 @@ func (r *replica) Run() {
 			r.frp.setAvailable(r)
 			r.reqsProcessed += 1
 		}
-		r.arrivalCond.Set(false)
-		if r.terminated {
-			shutdownTS := math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
-			r.upTime = shutdownTS - r.startTS
-			break
+		if r.arrivalQueue.Len() == 0 {
+			r.arrivalCond.Set(false)
+			if r.terminatedCond.GetState() {
+				shutdownTS := math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
+				r.upTime = shutdownTS - r.startTS
+				break
+			}
 		}
 	}
+}
+
+func (r *replica) terminate() {
+	r.terminatedCond.Set(true)
+	r.arrivalCond.Set(true)
 }
 
 func (r *replica) getOutPut() []string {
 	return []string{
 		r.replicaID,
-		r.frp.frpID,
+		r.frp.rpID,
 		r.appID,
 		r.funcID,
 		strconv.FormatFloat(r.busyTime, 'f', -1, 64),

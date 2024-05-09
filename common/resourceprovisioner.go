@@ -24,7 +24,7 @@ type resourceProvisioner struct {
 	availableReplicas *godes.LIFOQueue
 	appID             string
 	funcID            string
-	frpID             string
+	rpID              string
 	terminated        bool
 	cfg               Config
 	replicas          []*replica
@@ -32,7 +32,7 @@ type resourceProvisioner struct {
 }
 
 func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
-	frp := &resourceProvisioner{
+	rp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
 		terminatedCond:    godes.NewBooleanControl(),
@@ -41,76 +41,77 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 		availableReplicas: godes.NewLIFOQueue("available"),
 		appID:             aid,
 		funcID:            fid,
-		frpID:             aid + "-" + fid,
+		rpID:              aid + "-" + fid,
 		replicas:          make([]*replica, 0),
 		cfg:               cfg,
 	}
-	frp.technique = newTechnique(frp, cfg.Technique)
-	return frp
+	rp.technique = newTechnique(rp, cfg.Technique)
+	return rp
 }
 
-func (frp *resourceProvisioner) forward(i *invocation) {
-	frp.technique.forward(frp, i)
+func (rp *resourceProvisioner) forward(i *invocation) {
+	rp.technique.forward(rp, i)
 }
 
-func (frp *resourceProvisioner) response(i *invocation) {
-	frp.technique.processResponse(i)
+func (rp *resourceProvisioner) response(i *invocation) {
+	rp.technique.processResponse(i)
 }
 
-func (frp *resourceProvisioner) setAvailable(r *replica) {
-	frp.availableReplicas.Place(r)
+func (rp *resourceProvisioner) setAvailable(r *replica) {
+	rp.availableReplicas.Place(r)
 }
 
-func (frp *resourceProvisioner) getAvailableReplica() *replica {
-	for frp.availableReplicas.Len() > 0 {
-		r := frp.availableReplicas.Get().(*replica)
-		if frp.cfg.Idletime < 0 {
+func (rp *resourceProvisioner) getAvailableReplica() *replica {
+	for rp.availableReplicas.Len() > 0 {
+		r := rp.availableReplicas.Get().(*replica)
+		if rp.cfg.Idletime < 0 {
 			return r
 		}
-		if godes.GetSystemTime()-r.lastWorkTS < frp.cfg.Idletime {
+		if godes.GetSystemTime()-r.lastWorkTS < rp.cfg.Idletime {
 			return r
 		}
 		r.terminate()
 	}
-	replica := newReplica(frp, time.Now().String(), frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb, frp.cfg.Idletime)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg.TailLatency, rp.cfg.TailLatencyProb, rp.cfg.Idletime)
 	godes.AddRunner(replica)
-	frp.replicas = append(frp.replicas, replica)
+	rp.replicas = append(rp.replicas, replica)
 	return replica
 }
 
-func (frp *resourceProvisioner) terminate() {
-	frp.terminated = true
-	frp.arrivalCond.Set(true)
-	frp.terminatedCond.Wait(true)
-	for _, r := range frp.replicas {
+func (rp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
+	return rp.technique.processWarning(i, tl)
+}
+
+func (rp *resourceProvisioner) Run() {
+	for {
+		rp.arrivalCond.Wait(true)
+		if rp.arrivalQueue.Len() > 0 {
+			i := rp.arrivalQueue.Get().(*invocation)
+			r := rp.getAvailableReplica()
+			r.process(i)
+			continue
+		}
+		if rp.arrivalQueue.Len() == 0 {
+			rp.arrivalCond.Set(false)
+			if rp.terminatedCond.GetState() {
+				break
+			}
+		}
+	}
+}
+
+func (rp *resourceProvisioner) terminate() {
+	rp.terminatedCond.Set(true)
+	rp.arrivalCond.Set(true)
+	rp.arrivalCond.Wait(false)
+	for _, r := range rp.replicas {
 		r.terminate()
 	}
 }
 
-func (frp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
-	return frp.technique.processWarning(i, tl)
-}
-
-func (frp *resourceProvisioner) Run() {
-	for {
-		frp.arrivalCond.Wait(true)
-		if frp.arrivalQueue.Len() > 0 {
-			i := frp.arrivalQueue.Get().(*invocation)
-			r := frp.getAvailableReplica()
-			r.process(i)
-			continue
-		}
-		frp.arrivalCond.Set(false)
-		if frp.terminated {
-			frp.terminatedCond.Set(true)
-			break
-		}
-	}
-}
-
-func (frp *resourceProvisioner) getOutPut() [][]string {
+func (rp *resourceProvisioner) getOutPut() [][]string {
 	res := [][]string{}
-	for _, r := range frp.replicas {
+	for _, r := range rp.replicas {
 		res = append(res, r.getOutPut())
 	}
 	return res

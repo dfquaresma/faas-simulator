@@ -31,6 +31,7 @@ type iInvocation interface {
 type iInvocations interface {
 	next() iInvocation
 	hasNext() bool
+	getSize() int64
 	getOutPut() [][]string
 }
 
@@ -283,6 +284,10 @@ func (i *invocation) getOutPut() []string {
 		strings.Join(i.im.rh_hops, ";"),
 		strings.Join(rh_hopResponsesStr, ";"),
 	}
+}
+
+func (i *invocations) GetSize() int64 {
+	return int64(len(i.invocations))
 }
 
 func (i *invocations) GetOutPut() [][]string {

@@ -57,7 +57,7 @@ func (r *replica) process(i *invocation) {
 
 func (r *replica) getTailLatency() float64 {
 	tailLatency := 0.0
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	if r.tailLatencyProb >= rand.Float64() {
 		tailLatency = r.tailLatency
 	}

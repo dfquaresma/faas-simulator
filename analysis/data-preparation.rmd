@@ -1,0 +1,95 @@
+---
+title: "Mestrado"
+author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
+date: "may, 2024"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+
+process_df <- function(df) {
+  p0 <- quantile(df$duration, probs = 0)
+  p95 <- quantile(df$duration, probs = 0.95)
+  p100 <- quantile(df$duration, probs = 1)
+
+  df$start_timestamp = df$end_timestamp - df$duration
+  df$p95 <- p95
+  df$is_tail_latency <- "false"
+  df[df$duration > p95, "is_tail_latency"] <- "true"
+  
+  # creates values between p0 and p95 to replace values above p95
+  set.seed(64)
+  valuesUpToP95 =  runif(sum(df$duration > p95), min = p0, max = p95)
+  valuesUpToP100 = runif(sum(df$duration > p95), min = p0, max = p100)
+  
+  # Remove Values greater than the 95th percentile and replace them with random values between p0th up to p95th or p100th in order to keep the distribution unchanged.
+  df[df$duration > p95, "duration_notl_uptop95"] <- valuesUpToP95
+  df[df$duration > p95, "duration_notl_uptop100"] <- valuesUpToP100
+  
+  df[is.na(df$duration_notl_uptop95), "duration_notl_uptop95"] <- -1
+  df[is.na(df$duration_notl_uptop100), "duration_notl_uptop100"] <- -1
+
+  return(df)
+}
+
+rm_infreq_functions <- function(df) {
+  # Return the sub_df if sub_df has more than 1000 rows, otherwise NULL
+  if (nrow(df) > 1000) {
+    return(df)
+  } else {
+    return(NULL)
+  }
+  return(df)
+}
+
+filter_functions <- function(df) {
+  return(rm_infreq_functions(process_df(df)))
+}
+```
+
+```{r}
+inv2021 = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021.csv", header = TRUE)
+
+# Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
+inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
+# Remove null entries in inv2021_split
+inv2021_split_filtered <- inv2021_split[!sapply(inv2021_split, is.null)]
+
+# Merge data 
+inv2021_merged = do.call(rbind, inv2021_split_filtered)
+inv2021_merged = data.frame(
+  func = inv2021_merged$func,
+  duration = inv2021_merged$duration,
+  start_timestamp = inv2021_merged$start_timestamp,
+  app = inv2021_merged$app,
+  end_timestamp = inv2021_merged$end_timestamp,
+  p95 = inv2021_merged$p95,
+  is_tail_latency = inv2021_merged$is_tail_latency,
+  duration_notl_uptop95 = inv2021_merged$duration_notl_uptop95,
+  duration_notl_uptop100 = inv2021_merged$duration_notl_uptop100
+)
+# sort by start_timestamp
+inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, p95, is_tail_latency, duration_notl_uptop95, duration_notl_uptop100)
+
+# save processed data
+write.csv(inv2021_merged, file = "C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/inv2021-processed.csv", row.names = FALSE)
+```
+
+```{r}
+compare_traces <- function(func_ref, title) {
+  function_trace       = subset(inv2021,        func == func_ref)$duration
+  function_merge_trace = subset(inv2021_merged, func == func_ref)$duration
+  
+  p95 = quantile(function_trace, probs = 0.95)
+  hist(function_trace,                       main = paste("original trace: ",         title, sep=" "), xlab = "Duration")
+  hist(function_trace[function_trace <= p95], main = paste("trace truncated at p95: ", title, sep=" "), xlab = "Duration")
+  hist(function_merge_trace,                 main = paste("treated trace: ",          title, sep=" "), xlab = "Duration")
+}
+compare_traces("090691f051acb420d7663cd61db5ade89ca57b3516a14600758c5003015f4d42", "function with suffix 4d42")
+compare_traces("e02465de583b6ceffa5b78cce5f10eb27e714a8a6b3aed483be50f30a924071f", "function with suffix 071f")
+compare_traces("4ebfe961fb725aa1b0e95c0f40be44625edbfbbb9b89aa593e23d81211eb3e87", "function with suffix 3e87")
+compare_traces("7940faf88dec730f882fc978f336d7a6db0c6069120abd95a953e9bfc988aecd", "function with suffix aecd")
+compare_traces("556ccf8758c8c2a20082c161e955405e950439f0503522fe129e709a5dc0e58f", "function with suffix e58f")
+```
+

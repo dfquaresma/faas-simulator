@@ -25,7 +25,6 @@ type resourceProvisioner struct {
 	appID             string
 	funcID            string
 	rpID              string
-	terminated        bool
 	cfg               Config
 	replicas          []*replica
 	technique         *technique

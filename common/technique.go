@@ -1,44 +1,35 @@
 package common
 
-import (
-	"reflect"
-)
-
 type iTechnique interface {
 	processWarning(i *invocation, tl float64) (bool, float64)
-	forward(frp *resourceProvisioner, i *invocation)
+	forward(rp *resourceProvisioner, i *invocation)
 	processResponse(i *invocation, d float64)
 }
 
 type technique struct {
-	frp       *resourceProvisioner
+	rp        *resourceProvisioner
 	iIdAidFid map[string]*invocation
-	iAidFid   map[string][]*invocation
 	processed map[string]bool
 	config    string
 }
 
-func newTechnique(frp *resourceProvisioner, t string) *technique {
+func newTechnique(rp *resourceProvisioner, t string) *technique {
 	return &technique{
-		frp:       frp,
+		rp:        rp,
 		iIdAidFid: make(map[string]*invocation),
-		iAidFid:   make(map[string][]*invocation),
 		processed: make(map[string]bool),
 		config:    t,
 	}
 }
 
-func (t *technique) forward(frp *resourceProvisioner, i *invocation) {
+func (t *technique) forward(rp *resourceProvisioner, i *invocation) {
 	t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()] = i
-	iAidFidList := t.iAidFid[i.getAppID()+i.getFuncID()]
-	iAidFidList = append(iAidFidList, i)
-	t.iAidFid[i.getAppID()+i.getFuncID()] = iAidFidList
-	frp.arrivalQueue.Place(i)
+	rp.arrivalQueue.Place(i)
 	if t.config == "RequestHedgingDefault" {
 		iCopy := copyInvocation(i)
-		frp.arrivalQueue.Place(iCopy)
+		rp.arrivalQueue.Place(iCopy)
 	}
-	frp.arrivalCond.Set(true)
+	rp.arrivalCond.Set(true)
 }
 
 func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
@@ -46,7 +37,7 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 	case "GCI":
 		shouldRedirectReq := tl > 0
 		if shouldRedirectReq {
-			r := t.frp.getAvailableReplica()
+			r := t.rp.getAvailableReplica()
 			r.process(i)
 		}
 		return shouldRedirectReq, tl
@@ -60,7 +51,7 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 			iCopy := copyInvocation(i)
 			iCopy.setDuration(p95 + i.getDuration())
 			iCopy.resetResponseTime()
-			rep := t.frp.getAvailableReplica()
+			rep := t.rp.getAvailableReplica()
 			rep.process(iCopy)
 		}
 		return false, 0
@@ -73,14 +64,12 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 func (t *technique) processResponse(i *invocation) {
 	if t.config == "RequestHedgingDefault" || t.config == "RequestHedging95" {
 		iRef := t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()]
-		if !reflect.DeepEqual(i, iRef) {
-			iRef.updateRhInvocationMetadata(
-				i.im.forwardedTs,
-				i.im.processedTs,
-				i.im.responseTime,
-				i.im.hops,
-				i.im.hopResponses,
-			)
-		}
+		iRef.updateRhInvocationMetadata(
+			i.im.forwardedTs,
+			i.im.processedTs,
+			i.im.responseTime,
+			i.im.hops,
+			i.im.hopResponses,
+		)
 	}
 }

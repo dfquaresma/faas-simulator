@@ -4,12 +4,6 @@ import (
 	"github.com/agoussia/godes"
 )
 
-type iSelector interface {
-	forward(i *invocation)
-	terminate()
-	getOutPut() [][]string
-}
-
 type Config struct {
 	ForwardLatency  float64
 	Idletime        float64
@@ -87,7 +81,7 @@ func (s *selector) terminate() {
 
 func (s *selector) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed"}
+	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed", "lastWorkTS", "shutdownTS"}
 	res = append(res, header)
 	for _, rp := range s.provisioners {
 		for _, o := range rp.getOutPut() {

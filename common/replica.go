@@ -2,50 +2,39 @@ package common
 
 import (
 	"math"
-	"math/rand"
 	"strconv"
-	"time"
 
 	"github.com/agoussia/godes"
 )
-
-type iReplica interface {
-	process(i *invocation)
-	getOutPut() [][]string
-	terminate()
-}
 
 type replica struct {
 	*godes.Runner
 	arrivalCond      *godes.BooleanControl
 	terminatedCond   *godes.BooleanControl
 	arrivalQueue     *godes.FIFOQueue
-	frp              *resourceProvisioner
+	rp               *resourceProvisioner
 	replicaID        string
 	appID            string
 	funcID           string
 	idlenessDeadline float64
 	startTS          float64
+	shutdownTS       float64
 	lastWorkTS       float64
 	busyTime         float64
 	upTime           float64
-	tailLatency      float64
-	tailLatencyProb  float64
 	reqsProcessed    int
 }
 
-func newReplica(frp *resourceProvisioner, rid, aid, fid string, tl, tlp, idl float64) *replica {
+func newReplica(rp *resourceProvisioner, rid, aid, fid string, idl float64) *replica {
 	return &replica{
 		Runner:           &godes.Runner{},
 		arrivalCond:      godes.NewBooleanControl(),
 		terminatedCond:   godes.NewBooleanControl(),
 		arrivalQueue:     godes.NewFIFOQueue("arrival"),
-		frp:              frp,
+		rp:               rp,
 		replicaID:        rid,
 		appID:            aid,
 		funcID:           fid,
-		tailLatency:      tl,
-		tailLatencyProb:  tlp,
 		idlenessDeadline: idl,
 	}
 }
@@ -55,15 +44,6 @@ func (r *replica) process(i *invocation) {
 	r.arrivalCond.Set(true)
 }
 
-func (r *replica) getTailLatency() float64 {
-	tailLatency := 0.0
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	if r.tailLatencyProb >= rand.Float64() {
-		tailLatency = r.tailLatency
-	}
-	return tailLatency
-}
-
 func (r *replica) Run() {
 	r.startTS = godes.GetSystemTime()
 	for {
@@ -71,38 +51,42 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*invocation)
 
-			forwardLatency := r.frp.cfg.ForwardLatency
+			forwardLatency := r.rp.cfg.ForwardLatency
 			godes.Advance(forwardLatency)
 			i.updateHopResponse(forwardLatency)
-
 			i.updateHops(r.replicaID)
-			tailLatency := r.getTailLatency()
 
-			shouldSkipReq, timeToWaste := r.frp.warnReqLatency(i, tailLatency)
-			if shouldSkipReq {
-				godes.Advance(timeToWaste)
-				r.busyTime += timeToWaste
-				r.lastWorkTS = godes.GetSystemTime()
-				r.frp.setAvailable(r)
-				continue
+			if i.isTailLatency() {
+				tailLatency := i.getDuration() - i.getP95()
+				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
+				if shouldSkipReq {
+					godes.Advance(timeToWaste)
+					r.busyTime += timeToWaste
+					r.lastWorkTS = godes.GetSystemTime()
+					r.rp.setAvailable(r)
+					continue
+				}
 			}
 
-			dur := i.getDuration() + tailLatency
+			dur := i.getDuration()
 			godes.Advance(dur)
 			r.busyTime += dur
 
 			r.lastWorkTS = godes.GetSystemTime()
 			i.addProcessedTs(r.lastWorkTS)
 			i.updateHopResponse(dur)
-			r.frp.response(i)
-			r.frp.setAvailable(r)
+			r.rp.response(i)
+			r.rp.setAvailable(r)
 			r.reqsProcessed += 1
 		}
 		if r.arrivalQueue.Len() == 0 {
 			r.arrivalCond.Set(false)
 			if r.terminatedCond.GetState() {
-				shutdownTS := math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
-				r.upTime = shutdownTS - r.startTS
+				r.shutdownTS = godes.GetSystemTime()
+				if r.idlenessDeadline >= 0 {
+					r.shutdownTS = math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
+				}
+				r.upTime = r.shutdownTS - r.startTS
 				break
 			}
 		}
@@ -117,11 +101,13 @@ func (r *replica) terminate() {
 func (r *replica) getOutPut() []string {
 	return []string{
 		r.replicaID,
-		r.frp.rpID,
+		r.rp.rpID,
 		r.appID,
 		r.funcID,
 		strconv.FormatFloat(r.busyTime, 'f', -1, 64),
 		strconv.FormatFloat(r.upTime, 'f', -1, 64),
 		strconv.Itoa(r.reqsProcessed),
+		strconv.FormatFloat(r.lastWorkTS, 'f', -1, 64),
+		strconv.FormatFloat(r.shutdownTS, 'f', -1, 64),
 	}
 }

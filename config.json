@@ -1,13 +1,9 @@
 {
-  "tracePath": "./inv2021-processed.csv",
-  "outputPath": "./RequestHedgingDefault",
-  "technique": "RequestHedgingDefault",
+  "tracePath": "./input_sample.csv",
+  "outputPath": "./vanilla",
+  "technique": "vanilla",
   "resourceProvisioner": {
     "forwardLatency": 0.0,
     "idletime": -1.0
-  },
-  "replica": {
-    "tailLatencyProb": 0.0,
-    "tailLatency": 0.0
   }
 }

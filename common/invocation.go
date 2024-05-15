@@ -6,35 +6,6 @@ import (
 	"strings"
 )
 
-type iInvocation interface {
-	getAppID() string
-	getFuncID() string
-	getDuration() float64
-	getP95() float64
-	getStartTS() float64
-	getEndTS() float64
-	getID() string
-	getOutPut() []string
-	setForwardedTs(ft float64)
-	addProcessedTs(ft float64)
-	getLastProcessedTs() float64
-	setDuration(nd float64)
-	updateHops(replicaID string)
-	getLastHop() string
-	updateHopResponse(hopResponse float64)
-	getLastHopResponse() float64
-	hasHops() bool
-	removeLastHop()
-	resetResponseTime()
-}
-
-type iInvocations interface {
-	next() iInvocation
-	hasNext() bool
-	getSize() int64
-	getOutPut() [][]string
-}
-
 type invocations struct {
 	iLen        int
 	iterator    int
@@ -47,12 +18,14 @@ type invocation struct {
 }
 
 type traceEntry struct {
-	appID    string
-	funcID   string
-	duration float64
-	p95      float64
-	endTS    float64
-	startTS  float64
+	appID           string
+	funcID          string
+	duration        float64
+	endTS           float64
+	startTS         float64
+	p95             float64
+	p100            float64
+	is_tail_latency bool
 }
 
 type invocationMetadata struct {
@@ -67,24 +40,30 @@ type invocationMetadata struct {
 	rh_responseTime float64
 	rh_hops         []string
 	rh_hopResponses []float64
+	is_copy         bool
+	shed_times      int
 }
 
 func newInvocation(id string, te traceEntry) *invocation {
 	return &invocation{
 		te: te,
-		im: invocationMetadata{id: id},
+		im: invocationMetadata{
+			id:      id,
+			is_copy: false,
+		},
 	}
 }
 
 func copyInvocation(i *invocation) *invocation {
 	return &invocation{
 		te: traceEntry{
-			appID:    i.te.appID,
-			funcID:   i.te.funcID,
-			duration: i.te.duration,
-			p95:      i.te.p95,
-			endTS:    i.te.endTS,
-			startTS:  i.te.startTS,
+			appID:           i.te.appID,
+			funcID:          i.te.funcID,
+			duration:        i.te.duration,
+			endTS:           i.te.endTS,
+			startTS:         i.te.startTS,
+			p95:             i.te.p95,
+			is_tail_latency: i.te.is_tail_latency,
 		},
 		im: invocationMetadata{
 			id:           i.im.id,
@@ -93,6 +72,7 @@ func copyInvocation(i *invocation) *invocation {
 			responseTime: i.im.responseTime,
 			hops:         []string{},
 			hopResponses: []float64{},
+			is_copy:      true,
 		},
 	}
 }
@@ -111,6 +91,10 @@ func (i *invocation) getDuration() float64 {
 
 func (i *invocation) getP95() float64 {
 	return i.te.p95
+}
+
+func (i *invocation) getP100() float64 {
+	return i.te.p100
 }
 
 func (i *invocation) getStartTS() float64 {
@@ -139,6 +123,9 @@ func (i *invocation) getLastProcessedTs() float64 {
 
 func (i *invocation) setDuration(nd float64) {
 	i.te.duration = nd
+	if nd <= i.te.p95 {
+		i.te.is_tail_latency = false
+	}
 }
 
 func (i *invocation) updateHops(replicaID string) {
@@ -168,6 +155,10 @@ func (i *invocation) getLastHopResponse() float64 {
 
 func (i *invocation) hasHops() bool {
 	return len(i.im.hops) != 0 && len(i.im.hopResponses) != 0
+}
+
+func (i *invocation) isTailLatency() bool {
+	return i.te.is_tail_latency
 }
 
 func (i *invocation) removeLastHop() {
@@ -232,19 +223,30 @@ func toTraceEntry(row []string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	p95 := 0.0
-	//p95, err := strconv.ParseFloat(row[5], 64)
-	//if err != nil {
-	//	return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
-	//}
+	p95, err := strconv.ParseFloat(row[5], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
+	}
+
+	p100, err := strconv.ParseFloat(row[6], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
+	}
+
+	is_tail_latency, err := strconv.ParseBool(row[7])
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing is_tail_latency in row (%v): %q", row, err)
+	}
 
 	return &traceEntry{
-		appID:    AppID,
-		funcID:   funcID,
-		duration: duration,
-		p95:      p95,
-		endTS:    endTS,
-		startTS:  startTS,
+		appID:           AppID,
+		funcID:          funcID,
+		duration:        duration,
+		endTS:           endTS,
+		startTS:         startTS,
+		p100:            p100,
+		p95:             p95,
+		is_tail_latency: is_tail_latency,
 	}, nil
 }
 

@@ -6,15 +6,6 @@ import (
 	"github.com/agoussia/godes"
 )
 
-type iResourceProvisioner interface {
-	forward(i *invocation)
-	response(i *invocation, d float64)
-	setAvailable(r *replica)
-	warnReqLatency(i *invocation, tl float64) (bool, float64)
-	terminate()
-	getOutPut() [][]string
-}
-
 type resourceProvisioner struct {
 	*godes.Runner
 	arrivalCond       *godes.BooleanControl
@@ -71,7 +62,7 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 		}
 		r.terminate()
 	}
-	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg.TailLatency, rp.cfg.TailLatencyProb, rp.cfg.Idletime)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg.Idletime)
 	godes.AddRunner(replica)
 	rp.replicas = append(rp.replicas, replica)
 	return replica

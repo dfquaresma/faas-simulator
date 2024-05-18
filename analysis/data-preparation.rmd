@@ -59,6 +59,10 @@ inv2021_merged = data.frame(
 # sort by start_timestamp
 inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, p95, p100,is_tail_latency)
 
+inv2021_merged_nozero = subset(inv2021_merged, duration != 0)
+
+nrow(inv2021_merged_nozero) / nrow(inv2021_merged)
+
 # save processed data
 #write.csv(inv2021_merged, file = "C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/inv2021-processed.csv", row.names = FALSE)
 ```

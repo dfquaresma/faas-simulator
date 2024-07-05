@@ -20,16 +20,18 @@ func main() {
 	tracePath := viper.GetString("tracePath")
 	rows := readInput(tracePath)
 
-	invocations, err := common.NewInvocations(rows)
+	cfg := common.Config{
+		ForwardLatency:  viper.GetFloat64("resourceProvisioner.forwardLatency"),
+		Idletime:        viper.GetFloat64("resourceProvisioner.idletime"),
+		TailLatencyProb: viper.GetString("resourceProvisioner.tailLatencyProb"),
+		Technique:       viper.GetString("resourceProvisioner.technique"),
+	}
+
+	invocations, err := common.NewInvocations(rows, cfg.TailLatencyProb)
 	if err != nil {
 		panic(err)
 	}
 
-	cfg := common.Config{
-		ForwardLatency: viper.GetFloat64("resourceProvisioner.forwardLatency"),
-		Idletime:       viper.GetFloat64("resourceProvisioner.idletime"),
-		Technique:      viper.GetString("technique"),
-	}
 	selector := common.NewSelector(cfg)
 	replayer := common.NewReplayer(invocations, selector)
 	replayer.Run()

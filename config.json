@@ -1,9 +1,10 @@
 {
-  "tracePath": "./input_sample.csv",
-  "outputPath": "./vanilla",
-  "technique": "vanilla",
+  "tracePath": "./azure/inv2021-processed.csv",
+  "outputPath": "./results/requestHedgingDefault_fLatency0_idletimeInf_tlprob99",
   "resourceProvisioner": {
     "forwardLatency": 0.0,
-    "idletime": -1.0
+    "idletime": -1,
+    "tailLatencyProb": "p99",
+    "technique": "RequestHedgingDefault"
   }
 }

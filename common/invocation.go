@@ -17,15 +17,22 @@ type invocation struct {
 	im invocationMetadata
 }
 
+type percentile struct {
+	p90  float64
+	p95  float64
+	p99  float64
+	p100 float64
+}
+
 type traceEntry struct {
-	appID           string
-	funcID          string
-	duration        float64
-	endTS           float64
-	startTS         float64
-	p95             float64
-	p100            float64
-	is_tail_latency bool
+	appID              string
+	funcID             string
+	duration           float64
+	endTS              float64
+	startTS            float64
+	percentile         percentile
+	tail_latency_value float64
+	is_tail_latency    bool
 }
 
 type invocationMetadata struct {
@@ -57,13 +64,14 @@ func newInvocation(id string, te traceEntry) *invocation {
 func copyInvocation(i *invocation) *invocation {
 	return &invocation{
 		te: traceEntry{
-			appID:           i.te.appID,
-			funcID:          i.te.funcID,
-			duration:        i.te.duration,
-			endTS:           i.te.endTS,
-			startTS:         i.te.startTS,
-			p95:             i.te.p95,
-			is_tail_latency: i.te.is_tail_latency,
+			appID:              i.te.appID,
+			funcID:             i.te.funcID,
+			duration:           i.te.duration,
+			endTS:              i.te.endTS,
+			startTS:            i.te.startTS,
+			percentile:         i.te.percentile,
+			tail_latency_value: i.te.tail_latency_value,
+			is_tail_latency:    i.te.is_tail_latency,
 		},
 		im: invocationMetadata{
 			id:           i.im.id,
@@ -89,12 +97,20 @@ func (i *invocation) getDuration() float64 {
 	return i.te.duration
 }
 
+func (i *invocation) getP90() float64 {
+	return i.te.percentile.p90
+}
+
 func (i *invocation) getP95() float64 {
-	return i.te.p95
+	return i.te.percentile.p95
+}
+
+func (i *invocation) getP99() float64 {
+	return i.te.percentile.p99
 }
 
 func (i *invocation) getP100() float64 {
-	return i.te.p100
+	return i.te.percentile.p100
 }
 
 func (i *invocation) getStartTS() float64 {
@@ -123,9 +139,7 @@ func (i *invocation) getLastProcessedTs() float64 {
 
 func (i *invocation) setDuration(nd float64) {
 	i.te.duration = nd
-	if nd <= i.te.p95 {
-		i.te.is_tail_latency = false
-	}
+	i.te.is_tail_latency = nd >= i.te.tail_latency_value
 }
 
 func (i *invocation) updateHops(replicaID string) {
@@ -172,10 +186,10 @@ func (i *invocation) resetResponseTime() {
 	i.im.responseTime = 0
 }
 
-func NewInvocations(rows [][]string) (*invocations, error) {
+func NewInvocations(rows [][]string, tlProb string) (*invocations, error) {
 	invocs := make([]invocation, 0)
 	for id, row := range rows {
-		traceEntry, err := toTraceEntry(row)
+		traceEntry, err := toTraceEntry(row, tlProb)
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +216,7 @@ func (i *invocations) hasNext() bool {
 	return i.iterator < i.iLen
 }
 
-func toTraceEntry(row []string) (*traceEntry, error) {
+func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 	// Row expected format: func,duration,startts,app,endts
 
 	AppID := row[0]
@@ -223,30 +237,50 @@ func toTraceEntry(row []string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	p95, err := strconv.ParseFloat(row[5], 64)
+	p90, err := strconv.ParseFloat(row[5], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
+	}
+
+	p95, err := strconv.ParseFloat(row[6], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
 	}
 
-	p100, err := strconv.ParseFloat(row[6], 64)
+	p99, err := strconv.ParseFloat(row[7], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
+	}
+
+	p100, err := strconv.ParseFloat(row[8], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
 	}
 
-	is_tail_latency, err := strconv.ParseBool(row[7])
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing is_tail_latency in row (%v): %q", row, err)
+	var tail_latency_value float64
+	switch tlProb {
+	case "p90":
+		tail_latency_value = p90
+	case "p95":
+		tail_latency_value = p95
+	case "p99":
+		tail_latency_value = p100
 	}
 
 	return &traceEntry{
-		appID:           AppID,
-		funcID:          funcID,
-		duration:        duration,
-		endTS:           endTS,
-		startTS:         startTS,
-		p100:            p100,
-		p95:             p95,
-		is_tail_latency: is_tail_latency,
+		appID:    AppID,
+		funcID:   funcID,
+		duration: duration,
+		endTS:    endTS,
+		startTS:  startTS,
+		percentile: percentile{
+			p90:  p90,
+			p95:  p95,
+			p99:  p99,
+			p100: p100,
+		},
+		tail_latency_value: tail_latency_value,
+		is_tail_latency:    duration >= tail_latency_value,
 	}, nil
 }
 

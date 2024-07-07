@@ -57,7 +57,7 @@ func (r *replica) Run() {
 			i.updateHops(r.replicaID)
 
 			if i.isTailLatency() {
-				tailLatency := i.getDuration() - i.getP95()
+				tailLatency := i.getDuration() - i.getTailLatencyThreshold()
 				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
 				if shouldSkipReq {
 					godes.Advance(timeToWaste)

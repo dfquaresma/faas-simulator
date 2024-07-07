@@ -53,7 +53,7 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 		if shouldHedge {
 			t.processed[iId] = true
 			iCopy := copyInvocation(i)
-			iCopy.setDuration(i.getP95() + t.getNewLatency(i.getP100()))
+			iCopy.setDuration(i.getTailLatencyThreshold() + t.getNewLatency(i.getP100()))
 			iCopy.resetResponseTime()
 			t.rp.arrivalQueue.Place(iCopy)
 			t.rp.arrivalCond.Set(true)

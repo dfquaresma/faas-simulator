@@ -25,14 +25,14 @@ type percentile struct {
 }
 
 type traceEntry struct {
-	appID              string
-	funcID             string
-	duration           float64
-	endTS              float64
-	startTS            float64
-	percentile         percentile
-	tail_latency_value float64
-	is_tail_latency    bool
+	appID                  string
+	funcID                 string
+	duration               float64
+	endTS                  float64
+	startTS                float64
+	percentile             percentile
+	tail_latency_threshold float64
+	is_tail_latency        bool
 }
 
 type invocationMetadata struct {
@@ -64,14 +64,14 @@ func newInvocation(id string, te traceEntry) *invocation {
 func copyInvocation(i *invocation) *invocation {
 	return &invocation{
 		te: traceEntry{
-			appID:              i.te.appID,
-			funcID:             i.te.funcID,
-			duration:           i.te.duration,
-			endTS:              i.te.endTS,
-			startTS:            i.te.startTS,
-			percentile:         i.te.percentile,
-			tail_latency_value: i.te.tail_latency_value,
-			is_tail_latency:    i.te.is_tail_latency,
+			appID:                  i.te.appID,
+			funcID:                 i.te.funcID,
+			duration:               i.te.duration,
+			endTS:                  i.te.endTS,
+			startTS:                i.te.startTS,
+			percentile:             i.te.percentile,
+			tail_latency_threshold: i.te.tail_latency_threshold,
+			is_tail_latency:        i.te.is_tail_latency,
 		},
 		im: invocationMetadata{
 			id:           i.im.id,
@@ -95,6 +95,10 @@ func (i *invocation) getFuncID() string {
 
 func (i *invocation) getDuration() float64 {
 	return i.te.duration
+}
+
+func (i *invocation) getTailLatencyThreshold() float64 {
+	return i.te.tail_latency_threshold
 }
 
 func (i *invocation) getP90() float64 {
@@ -139,7 +143,7 @@ func (i *invocation) getLastProcessedTs() float64 {
 
 func (i *invocation) setDuration(nd float64) {
 	i.te.duration = nd
-	i.te.is_tail_latency = nd >= i.te.tail_latency_value
+	i.te.is_tail_latency = nd >= i.te.tail_latency_threshold
 }
 
 func (i *invocation) updateHops(replicaID string) {
@@ -257,14 +261,14 @@ func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
 	}
 
-	var tail_latency_value float64
+	var tail_latency_threshold float64
 	switch tlProb {
 	case "p90":
-		tail_latency_value = p90
+		tail_latency_threshold = p90
 	case "p95":
-		tail_latency_value = p95
+		tail_latency_threshold = p95
 	case "p99":
-		tail_latency_value = p100
+		tail_latency_threshold = p99
 	}
 
 	return &traceEntry{
@@ -279,8 +283,8 @@ func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 			p99:  p99,
 			p100: p100,
 		},
-		tail_latency_value: tail_latency_value,
-		is_tail_latency:    duration >= tail_latency_value,
+		tail_latency_threshold: tail_latency_threshold,
+		is_tail_latency:        duration >= tail_latency_threshold,
 	}, nil
 }
 

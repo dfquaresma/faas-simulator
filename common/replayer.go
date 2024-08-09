@@ -32,6 +32,10 @@ func (re *replayer) Run() {
 	bar := progressbar.Default(re.invocations.GetSize())
 	for i := re.invocations.next(); i != nil; i = re.invocations.next() {
 		currStartTs := i.getStartTS()
+		if currStartTs-previousTs < 0 {
+			fmt.Errorf("NEGATIVE ADVANCE DURING REPLAYER")
+			panic(-1)
+		}
 		godes.Advance(currStartTs - previousTs)
 		previousTs = currStartTs
 		i.setForwardedTs(godes.GetSystemTime())

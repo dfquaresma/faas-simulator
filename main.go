@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 
 	"github.com/dfquaresma/faas-simulator/common"
+	"github.com/dfquaresma/faas-simulator/io"
 	"github.com/spf13/viper"
 )
 
@@ -40,7 +40,7 @@ func main() {
 							os.Exit(0)
 						}
 
-						rows := readInput(tracePath)
+						rows := io.ReadInput(tracePath)
 						cfg := common.Config{
 							ForwardLatency:  fLatency,
 							Idletime:        idleTimeFloat,
@@ -79,8 +79,8 @@ func main() {
 						fmt.Println("\n..Simulation for " + simulationName + " is finished")
 
 						fmt.Println("Writing results at " + outputPath)
-						writeOutput(outputPath+"/"+t+"/", simulationName+"-invocations.csv", invocations.GetOutPut())
-						writeOutput(outputPath+"/"+t+"/", simulationName+"-replicas.csv", selector.GetOutPut())
+						io.WriteOutput(outputPath+"/"+t+"/", simulationName+"-invocations.csv", invocations.GetOutPut())
+						io.WriteOutput(outputPath+"/"+t+"/", simulationName+"-replicas.csv", selector.GetOutPut())
 						fmt.Println("Results for " + simulationName + " was written")
 					}
 				}
@@ -88,43 +88,4 @@ func main() {
 		}
 	}
 
-}
-
-func readInput(tracePath string) [][]string {
-	input, err := os.Open(tracePath)
-	if err != nil {
-		panic(err)
-	}
-	defer input.Close()
-
-	r := csv.NewReader(input)
-	rows, err := r.ReadAll()
-	if err != nil {
-		panic(err)
-	}
-	return rows[1:]
-}
-
-func writeOutput(outputPath, simulationName string, data [][]string) {
-	err := os.MkdirAll(outputPath, os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-
-	filePath := outputPath + simulationName
-	output, err := os.Create(filePath)
-	if err != nil {
-		panic(err)
-	}
-	defer output.Close()
-
-	writer := csv.NewWriter(output)
-	defer writer.Flush()
-
-	for _, record := range data {
-		err := writer.Write(record)
-		if err != nil {
-			panic(err)
-		}
-	}
 }

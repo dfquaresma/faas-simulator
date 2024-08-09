@@ -4,91 +4,93 @@ import (
 	"github.com/agoussia/godes"
 )
 
-type iSelector interface {
-	forward(i *invocation)
-	terminate()
-	getOutPut() [][]string
-}
-
 type Config struct {
-	ColdstartLatency  float64
-	ForwardLatency	  float64
-	Idletime          float64
-	TailLatency       float64
-	TailLatencyProb   float64
+	ForwardLatency  float64
+	Idletime        float64
+	TailLatency     float64
+	TailLatencyProb string
+	Technique       string
+	HasOracle       bool
 }
 
 type selector struct {
 	*godes.Runner
-	arrivalCond  *godes.BooleanControl
-	arrivalQueue *godes.FIFOQueue
-	provisioners map[string]*resourceProvisioner
-	terminated   bool
-	cfg 		 Config
+	arrivalCond    *godes.BooleanControl
+	terminatedCond *godes.BooleanControl
+	arrivalQueue   *godes.FIFOQueue
+	provisioners   map[string]*resourceProvisioner
+	cfg            Config
 }
 
 func NewSelector(cfg Config) *selector {
 	return &selector{
-		Runner:       &godes.Runner{},
-		arrivalCond:  godes.NewBooleanControl(),
-		arrivalQueue: godes.NewFIFOQueue("arrival"),
-		provisioners: make(map[string]*resourceProvisioner),
-		cfg:  cfg,
+		Runner:         &godes.Runner{},
+		arrivalCond:    godes.NewBooleanControl(),
+		terminatedCond: godes.NewBooleanControl(),
+		arrivalQueue:   godes.NewFIFOQueue("arrival"),
+		provisioners:   make(map[string]*resourceProvisioner),
+		cfg:            cfg,
 	}
 }
 
-func (fs *selector) getProvisioner(aid, fid string) (*resourceProvisioner) {
-	frp := fs.provisioners[aid + fid]
-	if frp == nil {
-		frp = fs.newProvisioner(aid, fid)
+func (s *selector) getProvisioner(aid, fid string) *resourceProvisioner {
+	rp := s.provisioners[aid+fid]
+	if rp == nil {
+		rp = s.newProvisioner(aid, fid)
 	}
-	return frp
+	return rp
 }
 
-func (fs *selector) newProvisioner(aid, fid string) *resourceProvisioner {
-	frp := newResourceProvisioner(aid, fid, fs.cfg)
-	fs.provisioners[aid + fid] = frp
-	godes.AddRunner(frp)
-	return frp
+func (s *selector) newProvisioner(aid, fid string) *resourceProvisioner {
+	rp := newResourceProvisioner(aid, fid, s.cfg)
+	s.provisioners[aid+fid] = rp
+	godes.AddRunner(rp)
+	return rp
 }
 
-func (fs *selector) forward(i *invocation) {
-	fs.arrivalQueue.Place(i)
-	fs.arrivalCond.Set(true)
+func (s *selector) forward(i *invocation) {
+	s.arrivalQueue.Place(i)
+	s.arrivalCond.Set(true)
 }
 
-func (fs *selector) Run() {
+func (s *selector) Run() {
 	for {
-		fs.arrivalCond.Wait(true)
-		if fs.arrivalQueue.Len() > 0 {
-			i := fs.arrivalQueue.Get().(*invocation)
-			frp := fs.getProvisioner(i.getAppID(), i.getFuncID())
-			frp.forward(i)
+		s.arrivalCond.Wait(true)
+		if s.arrivalQueue.Len() > 0 {
+			i := s.arrivalQueue.Get().(*invocation)
+			rp := s.getProvisioner(i.getAppID(), i.getFuncID())
+			rp.forward(i)
 			continue
 		}
-		fs.arrivalCond.Set(false)
-		if fs.terminated {
-			break
+		if s.arrivalQueue.Len() == 0 {
+			s.arrivalCond.Set(false)
+			if s.terminatedCond.GetState() {
+				break
+			}
 		}
 	}
 }
 
-func (fs *selector) terminate() {
-	fs.terminated = true
-	fs.arrivalCond.Set(true)
-	for _, frp := range fs.provisioners {
-		frp.terminate()
+func (s *selector) terminate() {
+	s.terminatedCond.Set(true)
+	s.arrivalCond.Set(true)
+	s.arrivalCond.Wait(false)
+	for _, rp := range s.provisioners {
+		rp.terminate()
 	}
+	s.arrivalCond.Clear()
+	s.terminatedCond.Clear()
+	s.arrivalQueue.Clear()
 }
 
-func (fs *selector) GetOutPut() [][]string {
+func (s *selector) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"replicaID", "frpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed"}
+	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed", "lastWorkTS", "shutdownTS"}
 	res = append(res, header)
-	for _, frp := range fs.provisioners {
-		for _, o := range frp.getOutPut() {
+	for _, rp := range s.provisioners {
+		for _, o := range rp.getOutPut() {
 			res = append(res, o)
-		} 
+		}
 	}
 	return res
 }

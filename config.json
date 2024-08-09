@@ -1,13 +1,11 @@
 {
-    "tracePath": "./input_sample.csv",
-    "outputPath": "./output_sample",
-    "resourceProvisioner": {
-      "forwardLatency": 0.5,
-      "coldstartLatency": 1000.0,
-      "idletime": 0.0
-    },
-    "replica": {
-      "tailLatencyProb": 5.0,
-      "tailLatency": 100.0
-    }
+  "tracePath": "./azure/inv2021-processed.csv",
+  "outputPath": "./results/",
+  "resourceProvisioner": {
+    "forwardLatency": [0],
+    "idletime": [0, 5, 15, -1],
+    "tailLatencyProb": ["p90", "p95", "p99"],
+    "technique": ["RequestHedgingOpt"],
+    "hasOracle": ["false"]
+  }
 }

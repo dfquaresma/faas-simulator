@@ -1,96 +1,123 @@
 package common
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/agoussia/godes"
 )
 
-type iResourceProvisioner interface {
-	forward(i *invocation)
-	setAvailable(r *replica)
-	terminate()
-	getOutPut() [][]string
-}
-
 type resourceProvisioner struct {
 	*godes.Runner
 	arrivalCond       *godes.BooleanControl
+	terminatedCond    *godes.BooleanControl
 	availableCond     *godes.BooleanControl
 	arrivalQueue      *godes.FIFOQueue
 	availableReplicas *godes.LIFOQueue
 	appID             string
 	funcID            string
-	frpID             string
-	terminated        bool
-	cfg 		 	  Config
+	rpID              string
+	cfg               Config
 	replicas          []*replica
+	technique         *technique
+	lp                *latencyProcessor
 }
 
 func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
-	return &resourceProvisioner{
+	rp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
+		terminatedCond:    godes.NewBooleanControl(),
 		availableCond:     godes.NewBooleanControl(),
 		arrivalQueue:      godes.NewFIFOQueue("arrival"),
 		availableReplicas: godes.NewLIFOQueue("available"),
 		appID:             aid,
 		funcID:            fid,
-		frpID:             aid + "-" + fid,
+		rpID:              aid + "-" + fid,
 		replicas:          make([]*replica, 0),
-		cfg:  			   cfg,
+		cfg:               cfg,
 	}
+	rp.technique = newTechnique(rp, cfg.Technique)
+	rp.lp = newLatencyProcessor(rp)
+	return rp
 }
 
-func (frp *resourceProvisioner) forward(i *invocation) {
-	frp.arrivalQueue.Place(i)
-	frp.arrivalCond.Set(true)
+func (rp *resourceProvisioner) forward(i *invocation) {
+	rp.technique.forward(rp, i)
 }
 
-func (frp *resourceProvisioner) setAvailable(r *replica) {
-	frp.availableReplicas.Place(r)
+func (rp *resourceProvisioner) response(i *invocation) {
+	rp.technique.processResponse(i)
 }
 
-func (frp *resourceProvisioner) getAvailableReplica() *replica {
-	if frp.availableReplicas.Len() > 0 {
-		return frp.availableReplicas.Get().(*replica)
+func (rp *resourceProvisioner) setAvailable(r *replica) {
+	rp.availableReplicas.Place(r)
+}
+
+func (rp *resourceProvisioner) getAvailableReplica() *replica {
+	for rp.availableReplicas.Len() > 0 {
+		r := rp.availableReplicas.Get().(*replica)
+		if rp.cfg.Idletime < 0 {
+			return r
+		}
+		if godes.GetSystemTime()-r.lastWorkTS < rp.cfg.Idletime {
+			return r
+		}
+		r.terminate()
 	}
-	rid := fmt.Sprintf("%d", len(frp.replicas))
-	replica := newReplica(frp, rid, frp.appID, frp.funcID, frp.cfg.TailLatency, frp.cfg.TailLatencyProb )
-	godes.Advance(frp.cfg.ColdstartLatency)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg.Idletime)
 	godes.AddRunner(replica)
-	frp.replicas = append(frp.replicas, replica)
+	rp.replicas = append(rp.replicas, replica)
 	return replica
 }
 
-func (frp *resourceProvisioner) terminate() {
-	frp.terminated = true
-	frp.arrivalCond.Set(true)
-	for _, r := range frp.replicas {
-		r.terminate()
-	}
+func (rp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
+	return rp.technique.processWarning(i, tl)
 }
 
-func (frp *resourceProvisioner) Run() {
+func (rp *resourceProvisioner) Run() {
 	for {
-		frp.arrivalCond.Wait(true)
-		if frp.arrivalQueue.Len() > 0 {
-			i := frp.arrivalQueue.Get().(*invocation)
-			r := frp.getAvailableReplica()	
-			godes.Advance(frp.cfg.ForwardLatency)
+		rp.arrivalCond.Wait(true)
+		if rp.arrivalQueue.Len() > 0 {
+			i := rp.arrivalQueue.Get().(*invocation)
+			r := rp.getAvailableReplica()
+
+			if !rp.cfg.HasOracle {
+				newThreshould, err := rp.lp.getCurrTLThreshould(i)
+				if err != nil {
+					panic(err)
+				}
+				i.setTailLatencieThreshold(newThreshould)
+			}
+
 			r.process(i)
 			continue
 		}
-		frp.arrivalCond.Set(false)
-		if frp.terminated {
-			break
+		if rp.arrivalQueue.Len() == 0 {
+			rp.arrivalCond.Set(false)
+			if rp.terminatedCond.GetState() {
+				break
+			}
 		}
 	}
 }
 
-func (frp *resourceProvisioner) getOutPut() [][]string {
+func (rp *resourceProvisioner) terminate() {
+	rp.terminatedCond.Set(true)
+	rp.arrivalCond.Set(true)
+	rp.arrivalCond.Wait(false)
+	for _, r := range rp.replicas {
+		r.terminate()
+	}
+	rp.arrivalCond.Clear()
+	rp.terminatedCond.Clear()
+	rp.availableCond.Clear()
+	rp.arrivalQueue.Clear()
+	rp.availableReplicas.Clear()
+}
+
+func (rp *resourceProvisioner) getOutPut() [][]string {
 	res := [][]string{}
-	for _, r := range frp.replicas {
+	for _, r := range rp.replicas {
 		res = append(res, r.getOutPut())
 	}
 	return res

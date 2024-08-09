@@ -1,0 +1,11 @@
+{
+  "tracePath": "./azure/inv2021-processed.csv",
+  "outputPath": "./results/",
+  "resourceProvisioner": {
+    "forwardLatency": [0],
+    "idletime": [-1],
+    "tailLatencyProb": ["p99", "p95", "p90"],
+    "technique": ["RequestHedgingOpt"],
+    "hasOracle": ["true", "false"]
+  }
+}

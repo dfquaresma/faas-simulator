@@ -44,7 +44,7 @@ func (lp *latencyProcessor) processLatency(duration float64) {
 }
 
 func (lp *latencyProcessor) getPercentileValue(p int) float64 {
-	return kTh(lp.tree.Root, p, 0)
+	return kTh(lp.tree.Root, int(lp.tree.Size()*p/100), 0)
 }
 
 func kTh(n *avltree.Node[string, float64], k, prev int) float64 {

@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/dfquaresma/faas-simulator/common"
 	"github.com/spf13/viper"
@@ -18,27 +20,73 @@ func main() {
 	}
 
 	tracePath := viper.GetString("tracePath")
-	rows := readInput(tracePath)
+	techniques := viper.GetStringSlice("resourceProvisioner.technique")
+	hasOracle := viper.GetStringSlice("resourceProvisioner.hasOracle")
+	ForwardLatencies := viper.GetIntSlice("resourceProvisioner.forwardLatency")
+	idletimes := viper.GetIntSlice("resourceProvisioner.idletime")
+	tailLatencyProbs := viper.GetStringSlice("resourceProvisioner.tailLatencyProb")
+	for _, t := range techniques {
+		for _, o := range hasOracle {
+			hasOracle, err := strconv.ParseBool(o)
+			if err != nil {
+				fmt.Println(fmt.Errorf("Error in conversion: ", err))
+				os.Exit(0)
+			}
 
-	cfg := common.Config{
-		ForwardLatency:  viper.GetFloat64("resourceProvisioner.forwardLatency"),
-		Idletime:        viper.GetFloat64("resourceProvisioner.idletime"),
-		TailLatencyProb: viper.GetString("resourceProvisioner.tailLatencyProb"),
-		Technique:       viper.GetString("resourceProvisioner.technique"),
+			for _, f := range ForwardLatencies {
+				fLatency := float64(f)
+
+				for _, i := range idletimes {
+					idleTimeFloat := float64(i)
+
+					for _, p := range tailLatencyProbs {
+						rows := readInput(tracePath)
+						cfg := common.Config{
+							ForwardLatency:  fLatency,
+							Idletime:        idleTimeFloat,
+							TailLatencyProb: p,
+							Technique:       t,
+							HasOracle:       hasOracle,
+						}
+						fmt.Printf(
+							"Values for cfg: ForwardLatency:%f Idletime:%f TailLatencyProb:%s Technique:%s HasOracle:%t\n",
+							cfg.ForwardLatency,
+							cfg.Idletime,
+							cfg.TailLatencyProb,
+							cfg.Technique,
+							cfg.HasOracle,
+						)
+
+						invocations, err := common.NewInvocations(rows, cfg.TailLatencyProb)
+						if err != nil {
+							panic(err)
+						}
+
+						idleDesc := "INF"
+						if idleTimeFloat >= 0 {
+							idleDesc = fmt.Sprintf("%.1f", idleTimeFloat)
+						}
+						simulationName := fmt.Sprintf("%s_hasOracle%s_idletime%s_tlprob%s", t, o, idleDesc, p)
+						outputPath := viper.GetString("outputPath")
+						fmt.Printf("SimulationName: %s\n", simulationName)
+						fmt.Printf("OutputPath: %s\n", outputPath)
+
+						selector := common.NewSelector(cfg)
+						replayer := common.NewReplayer(invocations, selector, simulationName)
+						fmt.Print("Starting simulation...")
+						replayer.Run()
+						fmt.Println("\n..Simulation for " + simulationName + " is finished")
+
+						fmt.Println("Writing results at " + outputPath)
+						writeOutput(outputPath+"/"+t+"/", simulationName+"-invocations.csv", invocations.GetOutPut())
+						writeOutput(outputPath+"/"+t+"/", simulationName+"-replicas.csv", selector.GetOutPut())
+						fmt.Println("Results for " + simulationName + " was written")
+					}
+				}
+			}
+		}
 	}
 
-	invocations, err := common.NewInvocations(rows, cfg.TailLatencyProb)
-	if err != nil {
-		panic(err)
-	}
-
-	selector := common.NewSelector(cfg)
-	replayer := common.NewReplayer(invocations, selector)
-	replayer.Run()
-
-	outputPath := viper.GetString("outputPath")
-	writeOutput(outputPath+"-invocations.csv", invocations.GetOutPut())
-	writeOutput(outputPath+"-replicas.csv", selector.GetOutPut())
 }
 
 func readInput(tracePath string) [][]string {
@@ -56,8 +104,14 @@ func readInput(tracePath string) [][]string {
 	return rows[1:]
 }
 
-func writeOutput(outputPath string, data [][]string) {
-	output, err := os.Create(outputPath)
+func writeOutput(outputPath, simulationName string, data [][]string) {
+	err := os.MkdirAll(outputPath, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
+	filePath := outputPath + simulationName
+	output, err := os.Create(filePath)
 	if err != nil {
 		panic(err)
 	}

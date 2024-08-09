@@ -47,7 +47,7 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 		t.rp.arrivalCond.Set(true)
 		return true, tl
 
-	case "RequestHedging95":
+	case "RequestHedgingOpt":
 		iId := i.getID() + i.getAppID() + i.getFuncID()
 		shouldHedge := !t.processed[iId]
 		if shouldHedge {

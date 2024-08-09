@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/agoussia/godes"
 	"github.com/schollz/progressbar/v3"
 )
@@ -9,20 +11,24 @@ type replayer struct {
 	*godes.Runner
 	invocations *invocations
 	selector    *selector
+	id          string
 }
 
-func NewReplayer(invocations *invocations, selector *selector) *replayer {
+func NewReplayer(invocations *invocations, selector *selector, id string) *replayer {
 	return &replayer{
 		Runner:      &godes.Runner{},
 		invocations: invocations,
 		selector:    selector,
+		id:          id,
 	}
 }
 
 func (re *replayer) Run() {
+	fmt.Println("Starting Replayer...")
 	godes.AddRunner(re.selector)
 	godes.Run()
 	previousTs := 0.0
+
 	bar := progressbar.Default(re.invocations.GetSize())
 	for i := re.invocations.next(); i != nil; i = re.invocations.next() {
 		currStartTs := i.getStartTS()
@@ -34,4 +40,5 @@ func (re *replayer) Run() {
 	}
 	re.selector.terminate()
 	godes.WaitUntilDone()
+	godes.Clear()
 }

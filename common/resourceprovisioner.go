@@ -19,6 +19,7 @@ type resourceProvisioner struct {
 	cfg               Config
 	replicas          []*replica
 	technique         *technique
+	lp                *latencyProcessor
 }
 
 func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
@@ -36,6 +37,7 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 		cfg:               cfg,
 	}
 	rp.technique = newTechnique(rp, cfg.Technique)
+	rp.lp = newLatencyProcessor(rp)
 	return rp
 }
 
@@ -78,6 +80,15 @@ func (rp *resourceProvisioner) Run() {
 		if rp.arrivalQueue.Len() > 0 {
 			i := rp.arrivalQueue.Get().(*invocation)
 			r := rp.getAvailableReplica()
+
+			if !rp.cfg.HasOracle {
+				newThreshould, err := rp.lp.getCurrTLThreshould(i)
+				if err != nil {
+					panic(err)
+				}
+				i.setTailLatencieThreshold(newThreshould)
+			}
+
 			r.process(i)
 			continue
 		}
@@ -97,6 +108,11 @@ func (rp *resourceProvisioner) terminate() {
 	for _, r := range rp.replicas {
 		r.terminate()
 	}
+	rp.arrivalCond.Clear()
+	rp.terminatedCond.Clear()
+	rp.availableCond.Clear()
+	rp.arrivalQueue.Clear()
+	rp.availableReplicas.Clear()
 }
 
 func (rp *resourceProvisioner) getOutPut() [][]string {

@@ -96,6 +96,9 @@ func (r *replica) Run() {
 func (r *replica) terminate() {
 	r.terminatedCond.Set(true)
 	r.arrivalCond.Set(true)
+	r.arrivalCond.Clear()
+	r.terminatedCond.Clear()
+	r.arrivalQueue.Clear()
 }
 
 func (r *replica) getOutPut() []string {

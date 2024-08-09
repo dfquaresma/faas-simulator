@@ -31,6 +31,7 @@ type traceEntry struct {
 	endTS                  float64
 	startTS                float64
 	percentile             percentile
+	tlProb                 string
 	tail_latency_threshold float64
 	is_tail_latency        bool
 }
@@ -179,6 +180,11 @@ func (i *invocation) isTailLatency() bool {
 	return i.te.is_tail_latency
 }
 
+func (i *invocation) setTailLatencieThreshold(threshold float64) {
+	i.te.tail_latency_threshold = threshold
+	i.te.is_tail_latency = i.te.duration >= i.te.tail_latency_threshold
+}
+
 func (i *invocation) removeLastHop() {
 	if i.hasHops() {
 		i.im.hops = i.im.hops[:len(i.im.hops)-1]
@@ -283,6 +289,7 @@ func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 			p99:  p99,
 			p100: p100,
 		},
+		tlProb:                 tlProb,
 		tail_latency_threshold: tail_latency_threshold,
 		is_tail_latency:        duration >= tail_latency_threshold,
 	}, nil
@@ -306,6 +313,16 @@ func (i *invocation) getOutPut() []string {
 		rh_processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 
+	var tl_threshold_accuracy float64
+	switch i.te.tlProb {
+	case "p90":
+		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p90
+	case "p95":
+		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p95
+	case "p99":
+		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p99
+	}
+
 	return []string{
 		i.te.appID,
 		i.te.funcID,
@@ -323,6 +340,12 @@ func (i *invocation) getOutPut() []string {
 		strconv.FormatFloat(i.im.rh_responseTime, 'f', -1, 64),
 		strings.Join(i.im.rh_hops, ";"),
 		strings.Join(rh_hopResponsesStr, ";"),
+		strconv.FormatFloat(tl_threshold_accuracy, 'f', -1, 64),
+		strconv.FormatFloat(i.te.tail_latency_threshold, 'f', -1, 64),
+		strconv.FormatFloat(i.te.percentile.p90, 'f', -1, 64),
+		strconv.FormatFloat(i.te.percentile.p95, 'f', -1, 64),
+		strconv.FormatFloat(i.te.percentile.p99, 'f', -1, 64),
+		strconv.FormatFloat(i.te.percentile.p100, 'f', -1, 64),
 	}
 }
 
@@ -332,7 +355,7 @@ func (i *invocations) GetSize() int64 {
 
 func (i *invocations) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses"}
+	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses", "tl_threshold_accuracy", "tl_threshold", "p90", "p95", "p99", "p100"}
 	res = append(res, header)
 	for _, inv := range i.invocations {
 		res = append(res, inv.getOutPut())

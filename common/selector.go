@@ -10,6 +10,7 @@ type Config struct {
 	TailLatency     float64
 	TailLatencyProb string
 	Technique       string
+	HasOracle       bool
 }
 
 type selector struct {
@@ -77,6 +78,9 @@ func (s *selector) terminate() {
 	for _, rp := range s.provisioners {
 		rp.terminate()
 	}
+	s.arrivalCond.Clear()
+	s.terminatedCond.Clear()
+	s.arrivalQueue.Clear()
 }
 
 func (s *selector) GetOutPut() [][]string {

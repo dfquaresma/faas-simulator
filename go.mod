@@ -7,9 +7,17 @@ toolchain go1.22.1
 require github.com/agoussia/godes v0.0.0-20180605170806-4952b44f646a
 
 require (
+	github.com/ajwerner/orderstat v0.0.0-20200914031159-0ebfd67afbea // indirect
+	github.com/ancientlore/go-avltree v1.0.3 // indirect
+	github.com/ancientlore/go-avltree/v2 v2.1.1 // indirect
+	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/emirpasic/gods/v2 v2.0.0-alpha // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/google/btree v1.1.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/k0kubun/go-ansi v0.0.0-20180517002512-3bf9e2903213 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect

@@ -1,10 +1,11 @@
 {
-  "tracePath": "./azure/inv2021-processed.csv",
-  "outputPath": "./results/requestHedgingDefault_fLatency0_idletimeInf_tlprob99",
+  "tracePath": "./azure/sample.csv",
+  "outputPath": "./results/",
   "resourceProvisioner": {
-    "forwardLatency": 0.0,
-    "idletime": -1,
-    "tailLatencyProb": "p99",
-    "technique": "RequestHedgingDefault"
+    "forwardLatency": [0],
+    "idletime": [0, 5, 15, -1],
+    "tailLatencyProb": ["p90", "p95", "p99"],
+    "technique": ["Vanilla", "RequestHedgingDefault", "RequestHedgingOpt"],
+    "hasOracle": ["true", "false"]
   }
 }

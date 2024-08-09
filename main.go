@@ -26,20 +26,20 @@ func main() {
 	idletimes := viper.GetIntSlice("resourceProvisioner.idletime")
 	tailLatencyProbs := viper.GetStringSlice("resourceProvisioner.tailLatencyProb")
 	for _, t := range techniques {
-		for _, o := range hasOracle {
-			hasOracle, err := strconv.ParseBool(o)
-			if err != nil {
-				fmt.Println(fmt.Errorf("Error in conversion: ", err))
-				os.Exit(0)
-			}
-
+		for _, p := range tailLatencyProbs {
 			for _, f := range ForwardLatencies {
 				fLatency := float64(f)
 
 				for _, i := range idletimes {
 					idleTimeFloat := float64(i)
 
-					for _, p := range tailLatencyProbs {
+					for _, o := range hasOracle {
+						hasOracle, err := strconv.ParseBool(o)
+						if err != nil {
+							fmt.Println(fmt.Errorf("Error in conversion: ", err))
+							os.Exit(0)
+						}
+
 						rows := readInput(tracePath)
 						cfg := common.Config{
 							ForwardLatency:  fLatency,
@@ -48,6 +48,7 @@ func main() {
 							Technique:       t,
 							HasOracle:       hasOracle,
 						}
+
 						fmt.Printf(
 							"Values for cfg: ForwardLatency:%f Idletime:%f TailLatencyProb:%s Technique:%s HasOracle:%t\n",
 							cfg.ForwardLatency,

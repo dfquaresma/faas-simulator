@@ -35,8 +35,8 @@ func (re *replayer) Run() {
 	bar := progressbar.NewOptions(re.dataset.GetSize(),
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()), //you should install "github.com/k0kubun/go-ansi"
 		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionShowBytes(true),
 		progressbar.OptionSetWidth(15),
+		progressbar.OptionShowCount(),
 		progressbar.OptionSetDescription(re.desc),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[green]=[reset]",

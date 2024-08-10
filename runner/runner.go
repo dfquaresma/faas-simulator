@@ -12,7 +12,7 @@ import (
 
 func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs []string, idletimes, forwardLatencies []int) {
 	count := 1
-	total := len(forwardLatencies) * len(idletimes) * len(hasOracle) * len(tailLatencyProbs)
+	total := len(forwardLatencies) * len(idletimes) * len(tailLatencyProbs) * len(hasOracle) * len(techniques)
 	for _, f := range forwardLatencies {
 		fLatency := float64(f)
 		for _, i := range idletimes {

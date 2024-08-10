@@ -3,9 +3,9 @@
   "outputPath": "./results/",
   "resourceProvisioner": {
     "forwardLatency": [0],
-    "idletime": [-1, 0, 5, 15],
+    "idletime": [-1, 0, 15],
     "tailLatencyProb": ["p99", "p95", "p90"],
-    "technique": ["RequestHedgingOpt"],
-    "hasOracle": ["true", "false"]
+    "technique": ["RequestHedgingOpt", "RequestHedgingDefault", "Vanilla"],
+    "hasOracle": ["false"]
   }
 }

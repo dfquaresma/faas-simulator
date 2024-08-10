@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/agoussia/godes"
+	"github.com/dfquaresma/faas-simulator/model"
 )
 
 type replica struct {
@@ -39,7 +40,7 @@ func newReplica(rp *resourceProvisioner, rid, aid, fid string, idl float64) *rep
 	}
 }
 
-func (r *replica) process(i *invocation) {
+func (r *replica) process(i *model.Invocation) {
 	r.arrivalQueue.Place(i)
 	r.arrivalCond.Set(true)
 }
@@ -49,15 +50,15 @@ func (r *replica) Run() {
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
-			i := r.arrivalQueue.Get().(*invocation)
+			i := r.arrivalQueue.Get().(*model.Invocation)
 
 			forwardLatency := r.rp.cfg.ForwardLatency
 			godes.Advance(forwardLatency)
-			i.updateHopResponse(forwardLatency)
-			i.updateHops(r.replicaID)
+			i.UpdateHopResponse(forwardLatency)
+			i.UpdateHops(r.replicaID)
 
-			if i.isTailLatency() {
-				tailLatency := i.getDuration() - i.getTailLatencyThreshold()
+			if i.IsTailLatency() {
+				tailLatency := i.GetDuration() - i.GetTailLatencyThreshold()
 				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
 				if shouldSkipReq {
 					godes.Advance(timeToWaste)
@@ -68,13 +69,13 @@ func (r *replica) Run() {
 				}
 			}
 
-			dur := i.getDuration()
+			dur := i.GetDuration()
 			godes.Advance(dur)
 			r.busyTime += dur
 
 			r.lastWorkTS = godes.GetSystemTime()
-			i.addProcessedTs(r.lastWorkTS)
-			i.updateHopResponse(dur)
+			i.AddProcessedTs(r.lastWorkTS)
+			i.UpdateHopResponse(dur)
 			r.rp.response(i)
 			r.rp.setAvailable(r)
 			r.reqsProcessed += 1

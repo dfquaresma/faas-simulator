@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/dfquaresma/faas-simulator/model"
 	"github.com/emirpasic/gods/v2/trees/avltree"
 )
 
@@ -20,14 +21,14 @@ func newLatencyProcessor(rp *resourceProvisioner) *latencyProcessor {
 	}
 }
 
-func (lp *latencyProcessor) getCurrTLThreshould(i *invocation) (float64, error) {
+func (lp *latencyProcessor) getCurrTLThreshould(i *model.Invocation) (float64, error) {
 	if lp.tree.Size() < 100 {
 		return math.Inf(0), nil
 	}
 
-	dur := i.getDuration()
-	if i.im.is_copy && lp.rp.cfg.Technique == "RequestHedgingOpt" {
-		dur = dur - i.getTailLatencyThreshold()
+	dur := i.GetDuration()
+	if i.IsCopy() && lp.rp.cfg.Technique == "RequestHedgingOpt" {
+		dur = dur - i.GetTailLatencyThreshold()
 	}
 	lp.processLatency(dur)
 

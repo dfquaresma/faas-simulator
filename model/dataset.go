@@ -4,30 +4,30 @@ import (
 	"strconv"
 )
 
-type Invocations struct {
+type Dataset struct {
 	iLen        int
 	iterator    int
 	invocations []Invocation
 }
 
-func NewInvocations(rows [][]string, tlProb string) (*Invocations, error) {
+func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
 	invocs := make([]Invocation, len(rows))
 	for id, row := range rows {
-		traceEntry, err := ToTraceEntry(row, tlProb)
+		entry, err := ToTraceEntry(row, tlProb)
 		if err != nil {
 			return nil, err
 		}
-		invoc := NewInvocation(strconv.Itoa(id), *traceEntry)
-		invocs = append(invocs, *invoc)
+		invoc := NewInvocation(strconv.Itoa(id), *entry)
+		invocs[id] = *invoc
 	}
 
-	return &Invocations{
+	return &Dataset{
 		iLen:        len(invocs),
 		invocations: invocs,
 	}, nil
 }
 
-func (i *Invocations) Next() *Invocation {
+func (i *Dataset) Next() *Invocation {
 	if !i.HasNext() {
 		return nil
 	}
@@ -36,15 +36,15 @@ func (i *Invocations) Next() *Invocation {
 	return &i.invocations[index]
 }
 
-func (i *Invocations) HasNext() bool {
+func (i *Dataset) HasNext() bool {
 	return i.iterator < i.iLen
 }
 
-func (i *Invocations) GetSize() int64 {
-	return int64(len(i.invocations))
+func (i *Dataset) GetSize() int {
+	return len(i.invocations)
 }
 
-func (i *Invocations) GetOutPut() [][]string {
+func (i *Dataset) GetOutPut() [][]string {
 	res := [][]string{}
 	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses", "tl_threshold_accuracy", "tl_threshold", "p90", "p95", "p99", "p100"}
 	res = append(res, header)

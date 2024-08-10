@@ -3,11 +3,13 @@ package common
 import (
 	"math/rand"
 	"time"
+
+	"github.com/dfquaresma/faas-simulator/model"
 )
 
 type technique struct {
 	rp        *resourceProvisioner
-	iIdAidFid map[string]*invocation
+	iIdAidFid map[string]*model.Invocation
 	processed map[string]bool
 	config    string
 }
@@ -15,46 +17,45 @@ type technique struct {
 func newTechnique(rp *resourceProvisioner, t string) *technique {
 	return &technique{
 		rp:        rp,
-		iIdAidFid: make(map[string]*invocation),
+		iIdAidFid: make(map[string]*model.Invocation),
 		processed: make(map[string]bool),
 		config:    t,
 	}
 }
 
-func (t *technique) forward(rp *resourceProvisioner, i *invocation) {
-	t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()] = i
+func (t *technique) forward(rp *resourceProvisioner, i *model.Invocation) {
+	t.iIdAidFid[i.GetID()] = i
 	rp.arrivalQueue.Place(i)
 	if t.config == "RequestHedgingDefault" {
-		iCopy := copyInvocation(i)
-		iCopy.setDuration(t.getNewLatency(i.getP100()))
+		iCopy := model.CopyInvocation(i)
+		iCopy.SetDuration(t.newLatency(i.GetP100()))
 		rp.arrivalQueue.Place(iCopy)
 	}
-	rp.arrivalCond.Set(true)
 }
 
-func (t *technique) getNewLatency(p100 float64) float64 {
+func (t *technique) newLatency(p100 float64) float64 {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return rand.Float64() * p100
 }
 
-func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
+func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float64) {
 	switch t.config {
 	case "GCI":
 		// always shed requests since processWarning is always called from a tail latency request
-		i.im.shed_times = i.im.shed_times + 1
-		i.setDuration(t.getNewLatency(i.getP100()))
+		i.IncrementShedTimes()
+		i.SetDuration(t.newLatency(i.GetP100()))
 		t.rp.arrivalQueue.Place(i)
 		t.rp.arrivalCond.Set(true)
 		return true, tl
 
 	case "RequestHedgingOpt":
-		iId := i.getID() + i.getAppID() + i.getFuncID()
+		iId := i.GetID()
 		shouldHedge := !t.processed[iId]
 		if shouldHedge {
 			t.processed[iId] = true
-			iCopy := copyInvocation(i)
-			iCopy.setDuration(i.getTailLatencyThreshold() + t.getNewLatency(i.getP100()))
-			iCopy.resetResponseTime()
+			iCopy := model.CopyInvocation(i)
+			iCopy.SetDuration(i.GetTailLatencyThreshold() + t.newLatency(i.GetP100()))
+			iCopy.ResetResponseTime()
 			t.rp.arrivalQueue.Place(iCopy)
 			t.rp.arrivalCond.Set(true)
 		}
@@ -65,15 +66,15 @@ func (t *technique) processWarning(i *invocation, tl float64) (bool, float64) {
 	}
 }
 
-func (t *technique) processResponse(i *invocation) {
-	if i.im.is_copy {
-		iRef := t.iIdAidFid[i.getID()+i.getAppID()+i.getFuncID()]
-		iRef.updateRhInvocationMetadata(
-			i.im.forwardedTs,
-			i.im.processedTs,
-			i.im.responseTime,
-			i.im.hops,
-			i.im.hopResponses,
+func (t *technique) processResponse(i *model.Invocation) {
+	if i.IsCopy() {
+		iRef := t.iIdAidFid[i.GetID()]
+		iRef.UpdateRhInvocationMetadata(
+			i.GetForwardedTs(),
+			i.GetProcessedTs(),
+			i.GetResponseTime(),
+			i.GetHops(),
+			i.GetHopResponses(),
 		)
 	}
 }

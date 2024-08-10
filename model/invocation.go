@@ -11,8 +11,20 @@ type Invocation struct {
 	im invocationMetadata
 }
 
+type traceEntry struct {
+	appID                  string
+	funcID                 string
+	duration               float64
+	endTS                  float64
+	startTS                float64
+	percentile             percentile
+	tlProb                 string
+	tail_latency_threshold float64
+	is_tail_latency        bool
+}
+
 type invocationMetadata struct {
-	id              string
+	datasetId       string
 	forwardedTs     float64
 	processedTs     []float64
 	responseTime    float64
@@ -27,18 +39,6 @@ type invocationMetadata struct {
 	shed_times      int
 }
 
-type traceEntry struct {
-	appID                  string
-	funcID                 string
-	duration               float64
-	endTS                  float64
-	startTS                float64
-	percentile             percentile
-	tlProb                 string
-	tail_latency_threshold float64
-	is_tail_latency        bool
-}
-
 type percentile struct {
 	p90  float64
 	p95  float64
@@ -50,8 +50,8 @@ func NewInvocation(id string, te traceEntry) *Invocation {
 	return &Invocation{
 		te: te,
 		im: invocationMetadata{
-			id:      id,
-			is_copy: false,
+			datasetId: id,
+			is_copy:   false,
 		},
 	}
 }
@@ -69,7 +69,7 @@ func CopyInvocation(i *Invocation) *Invocation {
 			is_tail_latency:        i.te.is_tail_latency,
 		},
 		im: invocationMetadata{
-			id:           i.im.id,
+			datasetId:    i.im.datasetId,
 			forwardedTs:  i.im.forwardedTs,
 			processedTs:  i.im.processedTs,
 			responseTime: i.im.responseTime,
@@ -148,11 +148,8 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 	}, nil
 }
 
-func (i *Invocation) RemoveLastHop() {
-	if i.HasHops() {
-		i.im.hops = i.im.hops[:len(i.im.hops)-1]
-		i.im.hopResponses = i.im.hopResponses[:len(i.im.hopResponses)-1]
-	}
+func (i *Invocation) AddProcessedTs(pt float64) {
+	i.im.processedTs = append(i.im.processedTs, pt)
 }
 
 func (i *Invocation) ResetResponseTime() {
@@ -161,6 +158,13 @@ func (i *Invocation) ResetResponseTime() {
 
 func (i *Invocation) UpdateHops(replicaID string) {
 	i.im.hops = append(i.im.hops, replicaID)
+}
+
+func (i *Invocation) removeLastHop() {
+	if i.hasHops() {
+		i.im.hops = i.im.hops[:len(i.im.hops)-1]
+		i.im.hopResponses = i.im.hopResponses[:len(i.im.hopResponses)-1]
+	}
 }
 
 func (i *Invocation) UpdateHopResponse(hopResponse float64) {
@@ -176,7 +180,7 @@ func (i *Invocation) UpdateRhInvocationMetadata(rh_forwardedTs float64, rh_proce
 	i.im.rh_hopResponses = rh_hopResponses
 }
 
-func (i *Invocation) HasHops() bool {
+func (i *Invocation) hasHops() bool {
 	return len(i.im.hops) != 0 && len(i.im.hopResponses) != 0
 }
 
@@ -184,12 +188,36 @@ func (i *Invocation) IsTailLatency() bool {
 	return i.te.is_tail_latency
 }
 
-func (i *Invocation) AddProcessedTs(pt float64) {
-	i.im.processedTs = append(i.im.processedTs, pt)
+func (i *Invocation) IsCopy() bool {
+	return i.im.is_copy
+}
+
+func (i *Invocation) IncrementShedTimes() {
+	i.im.shed_times = i.im.shed_times + 1
 }
 
 func (i *Invocation) GetAppID() string {
 	return i.te.appID
+}
+
+func (i *Invocation) GetForwardedTs() float64 {
+	return i.im.forwardedTs
+}
+
+func (i *Invocation) GetProcessedTs() []float64 {
+	return i.im.processedTs
+}
+
+func (i *Invocation) GetResponseTime() float64 {
+	return i.im.responseTime
+}
+
+func (i *Invocation) GetHops() []string {
+	return i.im.hops
+}
+
+func (i *Invocation) GetHopResponses() []float64 {
+	return i.im.hopResponses
 }
 
 func (i *Invocation) GetFuncID() string {
@@ -204,18 +232,6 @@ func (i *Invocation) GetTailLatencyThreshold() float64 {
 	return i.te.tail_latency_threshold
 }
 
-func (i *Invocation) GetP90() float64 {
-	return i.te.percentile.p90
-}
-
-func (i *Invocation) GetP95() float64 {
-	return i.te.percentile.p95
-}
-
-func (i *Invocation) GetP99() float64 {
-	return i.te.percentile.p99
-}
-
 func (i *Invocation) GetP100() float64 {
 	return i.te.percentile.p100
 }
@@ -224,12 +240,12 @@ func (i *Invocation) GetStartTS() float64 {
 	return i.te.startTS
 }
 
-func (i *Invocation) GetEndTS() float64 {
-	return i.te.endTS
+func (i *Invocation) GetID() string {
+	return i.getDatasetID() + i.GetAppID() + i.GetFuncID()
 }
 
-func (i *Invocation) GetID() string {
-	return i.im.id
+func (i *Invocation) getDatasetID() string {
+	return i.im.datasetId
 }
 
 func (i *Invocation) GetLastProcessedTs() float64 {
@@ -278,7 +294,7 @@ func (i *Invocation) GetOutPut() []string {
 		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
 		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
 		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
-		i.im.id,
+		i.im.datasetId,
 		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
 		strings.Join(processedTsStr, ";"),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),

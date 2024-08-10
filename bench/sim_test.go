@@ -6,7 +6,7 @@ import (
 	"github.com/dfquaresma/faas-simulator/runner"
 )
 
-const tracePath = "../azure/inv2021-processed.csv"
+const tracePath = "../azure/sample.csv"
 const outputPath = "../results/"
 
 var forwardLatency = []int{0}

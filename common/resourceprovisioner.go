@@ -4,30 +4,29 @@ import (
 	"time"
 
 	"github.com/agoussia/godes"
+	"github.com/dfquaresma/faas-simulator/model"
 )
 
 type resourceProvisioner struct {
 	*godes.Runner
 	arrivalCond       *godes.BooleanControl
 	terminatedCond    *godes.BooleanControl
-	availableCond     *godes.BooleanControl
 	arrivalQueue      *godes.FIFOQueue
 	availableReplicas *godes.LIFOQueue
 	appID             string
 	funcID            string
 	rpID              string
-	cfg               Config
+	cfg               model.Config
 	replicas          []*replica
 	technique         *technique
 	lp                *latencyProcessor
 }
 
-func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisioner {
 	rp := &resourceProvisioner{
 		Runner:            &godes.Runner{},
 		arrivalCond:       godes.NewBooleanControl(),
 		terminatedCond:    godes.NewBooleanControl(),
-		availableCond:     godes.NewBooleanControl(),
 		arrivalQueue:      godes.NewFIFOQueue("arrival"),
 		availableReplicas: godes.NewLIFOQueue("available"),
 		appID:             aid,
@@ -41,11 +40,12 @@ func newResourceProvisioner(aid, fid string, cfg Config) *resourceProvisioner {
 	return rp
 }
 
-func (rp *resourceProvisioner) forward(i *invocation) {
+func (rp *resourceProvisioner) forward(i *model.Invocation) {
 	rp.technique.forward(rp, i)
+	rp.arrivalCond.Set(true)
 }
 
-func (rp *resourceProvisioner) response(i *invocation) {
+func (rp *resourceProvisioner) response(i *model.Invocation) {
 	rp.technique.processResponse(i)
 }
 
@@ -70,7 +70,7 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	return replica
 }
 
-func (rp *resourceProvisioner) warnReqLatency(i *invocation, tl float64) (bool, float64) {
+func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation, tl float64) (bool, float64) {
 	return rp.technique.processWarning(i, tl)
 }
 
@@ -78,7 +78,7 @@ func (rp *resourceProvisioner) Run() {
 	for {
 		rp.arrivalCond.Wait(true)
 		if rp.arrivalQueue.Len() > 0 {
-			i := rp.arrivalQueue.Get().(*invocation)
+			i := rp.arrivalQueue.Get().(*model.Invocation)
 			r := rp.getAvailableReplica()
 
 			if !rp.cfg.HasOracle {
@@ -86,7 +86,7 @@ func (rp *resourceProvisioner) Run() {
 				if err != nil {
 					panic(err)
 				}
-				i.setTailLatencieThreshold(newThreshould)
+				i.SetTailLatencieThreshold(newThreshould)
 			}
 
 			r.process(i)
@@ -110,7 +110,6 @@ func (rp *resourceProvisioner) terminate() {
 	}
 	rp.arrivalCond.Clear()
 	rp.terminatedCond.Clear()
-	rp.availableCond.Clear()
 	rp.arrivalQueue.Clear()
 	rp.availableReplicas.Clear()
 }

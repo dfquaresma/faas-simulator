@@ -11,6 +11,8 @@ import (
 )
 
 func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs []string, idletimes, forwardLatencies []int) {
+	count := 1
+	total := len(forwardLatencies) * len(idletimes) * len(hasOracle) * len(tailLatencyProbs)
 	for _, f := range forwardLatencies {
 		fLatency := float64(f)
 		for _, i := range idletimes {
@@ -54,7 +56,9 @@ func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs [
 						fmt.Printf("OutputPath: %s\n", outputPath)
 
 						selector := common.NewSelector(cfg)
-						replayer := common.NewReplayer(invocations, selector, simulationName)
+						replayer := common.NewReplayer(invocations, selector, simulationName, fmt.Sprintf("[cyan][%d/%d][reset] Running simulation...", count, total))
+						count++
+
 						fmt.Print("Starting simulation...")
 						replayer.Run()
 						fmt.Println("\n..Simulation for " + simulationName + " is finished")

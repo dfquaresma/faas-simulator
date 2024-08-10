@@ -14,14 +14,16 @@ type replayer struct {
 	dataset  *model.Dataset
 	selector *selector
 	id       string
+	desc     string
 }
 
-func NewReplayer(dataset *model.Dataset, selector *selector, id string) *replayer {
+func NewReplayer(dataset *model.Dataset, selector *selector, id, desc string) *replayer {
 	return &replayer{
 		Runner:   &godes.Runner{},
 		dataset:  dataset,
 		selector: selector,
 		id:       id,
+		desc:     desc,
 	}
 }
 
@@ -35,7 +37,7 @@ func (re *replayer) Run() {
 		progressbar.OptionEnableColorCodes(true),
 		progressbar.OptionShowBytes(true),
 		progressbar.OptionSetWidth(15),
-		progressbar.OptionSetDescription("[cyan][1/3][reset] Writing moshable file..."),
+		progressbar.OptionSetDescription(re.desc),
 		progressbar.OptionSetTheme(progressbar.Theme{
 			Saucer:        "[green]=[reset]",
 			SaucerHead:    "[green]>[reset]",

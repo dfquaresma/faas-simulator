@@ -6,7 +6,7 @@ import (
 	"github.com/dfquaresma/faas-simulator/runner"
 )
 
-const tracePath = "../azure/sample.csv"
+const tracePath = "../azure/inv2021-processed.csv"
 const outputPath = "../results/"
 
 var forwardLatency = []int{0}
@@ -14,7 +14,7 @@ var forwardLatency = []int{0}
 func BenchmarkSimulatorRequestHedgingOptOracleP99Inf(b *testing.B) {
 	technique := []string{"RequestHedgingOpt"}
 	hasOracle := []string{"true"}
-	percentileThreshould := []string{"p99"}
+	percentileThreshould := []string{"p90"}
 	replicaIdleTime := []int{-1}
 	runner.Sim(tracePath, outputPath, technique, hasOracle, percentileThreshould, replicaIdleTime, forwardLatency)
 }
@@ -22,7 +22,7 @@ func BenchmarkSimulatorRequestHedgingOptOracleP99Inf(b *testing.B) {
 func BenchmarkSimulatorRequestHedgingOptNoOracleP99Inf(b *testing.B) {
 	technique := []string{"RequestHedgingOpt"}
 	hasOracle := []string{"false"}
-	percentileThreshould := []string{"p99"}
+	percentileThreshould := []string{"p90"}
 	replicaIdleTime := []int{-1}
 	runner.Sim(tracePath, outputPath, technique, hasOracle, percentileThreshould, replicaIdleTime, forwardLatency)
 }

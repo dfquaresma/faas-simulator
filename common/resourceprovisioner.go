@@ -1,6 +1,7 @@
 package common
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/agoussia/godes"
@@ -9,9 +10,6 @@ import (
 
 type resourceProvisioner struct {
 	*godes.Runner
-	arrivalCond       *godes.BooleanControl
-	terminatedCond    *godes.BooleanControl
-	arrivalQueue      *godes.FIFOQueue
 	availableReplicas *godes.LIFOQueue
 	appID             string
 	funcID            string
@@ -24,25 +22,31 @@ type resourceProvisioner struct {
 
 func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisioner {
 	rp := &resourceProvisioner{
-		Runner:            &godes.Runner{},
-		arrivalCond:       godes.NewBooleanControl(),
-		terminatedCond:    godes.NewBooleanControl(),
-		arrivalQueue:      godes.NewFIFOQueue("arrival"),
-		availableReplicas: godes.NewLIFOQueue("available"),
-		appID:             aid,
-		funcID:            fid,
-		rpID:              aid + "-" + fid,
-		replicas:          make([]*replica, 0),
-		cfg:               cfg,
+		Runner:   &godes.Runner{},
+		appID:    aid,
+		funcID:   fid,
+		rpID:     aid + "-" + fid,
+		replicas: make([]*replica, 0),
+		cfg:      cfg,
 	}
 	rp.technique = newTechnique(rp, cfg.Technique)
-	rp.lp = newLatencyProcessor(rp)
+	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
+
+	p, err := strconv.Atoi(cfg.TailLatencyProb[1:])
+	if err != nil {
+		panic("Error parsing tailLatencyProb")
+	}
+	rp.lp = newLatencyProcessor(rp, p)
+
 	return rp
 }
 
 func (rp *resourceProvisioner) forward(i *model.Invocation) {
-	rp.technique.forward(rp, i)
-	rp.arrivalCond.Set(true)
+	if !rp.cfg.HasOracle {
+		i.SetTailLatencieThreshold(rp.lp.getCurrTLThreshould(i))
+	}
+	rp.getAvailableReplica().process(i)
+	rp.technique.forward(i)
 }
 
 func (rp *resourceProvisioner) response(i *model.Invocation) {
@@ -64,7 +68,7 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 		}
 		r.terminate()
 	}
-	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg.Idletime)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg)
 	godes.AddRunner(replica)
 	rp.replicas = append(rp.replicas, replica)
 	return replica
@@ -74,44 +78,10 @@ func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation, tl float64) (
 	return rp.technique.processWarning(i, tl)
 }
 
-func (rp *resourceProvisioner) Run() {
-	for {
-		rp.arrivalCond.Wait(true)
-		if rp.arrivalQueue.Len() > 0 {
-			i := rp.arrivalQueue.Get().(*model.Invocation)
-			r := rp.getAvailableReplica()
-
-			if !rp.cfg.HasOracle {
-				newThreshould, err := rp.lp.getCurrTLThreshould(i)
-				if err != nil {
-					panic(err)
-				}
-				i.SetTailLatencieThreshold(newThreshould)
-			}
-
-			r.process(i)
-			continue
-		}
-		if rp.arrivalQueue.Len() == 0 {
-			rp.arrivalCond.Set(false)
-			if rp.terminatedCond.GetState() {
-				break
-			}
-		}
-	}
-}
-
 func (rp *resourceProvisioner) terminate() {
-	rp.terminatedCond.Set(true)
-	rp.arrivalCond.Set(true)
-	rp.arrivalCond.Wait(false)
 	for _, r := range rp.replicas {
 		r.terminate()
 	}
-	rp.arrivalCond.Clear()
-	rp.terminatedCond.Clear()
-	rp.arrivalQueue.Clear()
-	rp.availableReplicas.Clear()
 }
 
 func (rp *resourceProvisioner) getOutPut() [][]string {

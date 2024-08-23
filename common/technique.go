@@ -10,31 +10,28 @@ import (
 type technique struct {
 	rp        *resourceProvisioner
 	iIdAidFid map[string]*model.Invocation
-	processed map[string]bool
 	config    string
 }
 
 func newTechnique(rp *resourceProvisioner, t string) *technique {
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &technique{
 		rp:        rp,
 		iIdAidFid: make(map[string]*model.Invocation),
-		processed: make(map[string]bool),
 		config:    t,
 	}
 }
 
-func (t *technique) forward(rp *resourceProvisioner, i *model.Invocation) {
+func (t *technique) forward(i *model.Invocation) {
 	t.iIdAidFid[i.GetID()] = i
-	rp.arrivalQueue.Place(i)
 	if t.config == "RequestHedgingDefault" {
 		iCopy := model.CopyInvocation(i)
 		iCopy.SetDuration(t.newLatency(i.GetP100()))
-		rp.arrivalQueue.Place(iCopy)
+		t.rp.getAvailableReplica().process(iCopy)
 	}
 }
 
 func (t *technique) newLatency(p100 float64) float64 {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return rand.Float64() * p100
 }
 
@@ -44,20 +41,15 @@ func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float
 		// always shed requests since processWarning is always called from a tail latency request
 		i.IncrementShedTimes()
 		i.SetDuration(t.newLatency(i.GetP100()))
-		t.rp.arrivalQueue.Place(i)
-		t.rp.arrivalCond.Set(true)
+		t.rp.getAvailableReplica().process(i)
 		return true, tl
 
 	case "RequestHedgingOpt":
-		iId := i.GetID()
-		shouldHedge := !t.processed[iId]
-		if shouldHedge {
-			t.processed[iId] = true
+		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
 			iCopy.SetDuration(i.GetTailLatencyThreshold() + t.newLatency(i.GetP100()))
 			iCopy.ResetResponseTime()
-			t.rp.arrivalQueue.Place(iCopy)
-			t.rp.arrivalCond.Set(true)
+			t.rp.getAvailableReplica().process(iCopy)
 		}
 		return false, 0
 

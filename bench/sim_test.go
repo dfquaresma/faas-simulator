@@ -9,20 +9,12 @@ import (
 const tracePath = "../azure/inv2021-processed.csv"
 const outputPath = "../results/"
 
-var forwardLatency = []int{0}
+var forwardLatency = []int{1}
 
-func BenchmarkSimulatorRequestHedgingOptOracleP99Inf(b *testing.B) {
-	technique := []string{"RequestHedgingOpt"}
+func BenchmarkSimulator(b *testing.B) {
+	technique := []string{"RequestHedgingDefault"}
 	hasOracle := []string{"true"}
-	percentileThreshould := []string{"p90"}
-	replicaIdleTime := []int{-1}
-	runner.Sim(tracePath, outputPath, technique, hasOracle, percentileThreshould, replicaIdleTime, forwardLatency)
-}
-
-func BenchmarkSimulatorRequestHedgingOptNoOracleP99Inf(b *testing.B) {
-	technique := []string{"RequestHedgingOpt"}
-	hasOracle := []string{"false"}
-	percentileThreshould := []string{"p90"}
+	percentileThreshould := []string{"p99"}
 	replicaIdleTime := []int{-1}
 	runner.Sim(tracePath, outputPath, technique, hasOracle, percentileThreshould, replicaIdleTime, forwardLatency)
 }

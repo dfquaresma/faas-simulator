@@ -47,7 +47,7 @@ func (re *replayer) Run() {
 		}))
 
 	progress := 0
-	barjump := 10000
+	barjump := 1000
 	for i := re.dataset.Next(); i != nil; i = re.dataset.Next() {
 		currStartTs := i.GetStartTS()
 		godes.Advance(currStartTs - previousTs)

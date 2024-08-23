@@ -144,7 +144,7 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 		},
 		tlProb:                 tlProb,
 		tail_latency_threshold: tail_latency_threshold,
-		is_tail_latency:        duration >= tail_latency_threshold,
+		is_tail_latency:        duration > tail_latency_threshold,
 	}, nil
 }
 
@@ -316,7 +316,7 @@ func (i *Invocation) GetOutPut() []string {
 
 func (i *Invocation) SetDuration(nd float64) {
 	i.te.duration = nd
-	i.te.is_tail_latency = nd >= i.te.tail_latency_threshold
+	i.te.is_tail_latency = nd > i.te.tail_latency_threshold
 }
 
 func (i *Invocation) SetForwardedTs(ft float64) {
@@ -325,5 +325,5 @@ func (i *Invocation) SetForwardedTs(ft float64) {
 
 func (i *Invocation) SetTailLatencieThreshold(threshold float64) {
 	i.te.tail_latency_threshold = threshold
-	i.te.is_tail_latency = i.te.duration >= i.te.tail_latency_threshold
+	i.te.is_tail_latency = i.te.duration > i.te.tail_latency_threshold
 }

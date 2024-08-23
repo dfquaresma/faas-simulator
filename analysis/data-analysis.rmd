@@ -1,0 +1,112 @@
+---
+title: "Mestrado"
+author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
+date: "may, 2024"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+result_path <- "D:/MESTRADO/repo/faas-simulator/results_bigsample"
+techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla')
+probs      <- c('tlprobp90', 'tlprobp95', 'tlprobp99')
+idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime5.0', 'idletime15.0')
+hasOracle <- c('hasOraclefalse') #c('hasOraclefalse', 'hasOracletrue')
+
+technique <- c()
+tailLatencyProb <- c()
+idletime <- c()
+p50 <- c()
+p90 <- c()
+p95 <- c()
+p99 <- c()
+for (t in techs) {
+  for (p in probs) {
+    for (i in idletimes) {
+      for (o in hasOracle) {
+        fileName = paste(paste(t, o, i, p, sep = "_"), "invocations.csv", sep="-")
+        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+        results_treated <- select(transform(results, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+        results_treated$responseTimeUseful <- ifelse(results_treated$minResponseTime != 0, results_treated$minResponseTime, results_treated$responseTime)
+        technique <- c(technique, t)
+        tailLatencyProb <- c(tailLatencyProb, p)
+        idletime <- c(idletime, i)
+        p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
+        p90 <- c(p90, quantile(results_treated$responseTimeUseful, probs = 0.90))
+        p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
+        p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
+     
+      }
+     
+    }
+  }
+}
+df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p90, p95, p99)
+
+
+uptime <- c()
+busyTime <- c()
+replicasCount <- c()
+for (t in techs) {
+  for (p in probs) {
+    for (i in idletimes) {
+      for (o in hasOracle) {
+        fileName = paste(paste(t, o, i, p, sep = "_"), "replicas.csv", sep="-")
+        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+        uptime <- c(uptime, sum(results$upTime))
+        busyTime <- c(busyTime, sum(results$busyTime))
+        replicasCount <- c(replicasCount, nrow(results))
+      }
+    }
+  }
+}
+df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount)
+
+
+df_for_invocations_bkp = df_for_invocations
+df_for_replicas_bkp = df_for_replicas
+
+parse_values <- function(df) {
+  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp90", 90, tailLatencyProb))
+  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp95", 95, tailLatencyProb))
+  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp99", 99, tailLatencyProb))
+
+  df <- df %>% mutate(idletime = ifelse(idletime == "idletime0.0", 0, idletime))
+  df <- df %>% mutate(idletime = ifelse(idletime == "idletime5.0", 5, idletime))
+  df <- df %>% mutate(idletime = ifelse(idletime == "idletime15.0", 15, idletime))
+  df <- df %>% mutate(idletime = ifelse(idletime == "idletimeINF", Inf, idletime))
+
+  return(df)
+}
+
+df_for_invocations <- parse_values(df_for_invocations)
+df_for_replicas <- parse_values(df_for_replicas)
+```
+
+
+
+
+```{r}
+plot_results <- function(df, metric, y_label, title) {
+  df$idletime_f <- factor(df$idletime, levels = c(0, 5, 15, Inf))
+  ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique))) +
+    geom_point() + 
+    facet_grid(. ~ factor(idletime, levels = c(0, 5, 15, Inf))) +
+    labs(x = "tail latency probability", y = y_label, title = title, colour = "technique") +
+    theme_bw()
+}
+
+plot_results(df_for_invocations, df_for_invocations$p50, "response time (ms)", "50th of invocations' response time for each idletime")
+plot_results(df_for_invocations, df_for_invocations$p90, "response time (ms)", "90th of invocations' response time for each idletime")
+plot_results(df_for_invocations, df_for_invocations$p95, "response time (ms)", "95th of invocations' response time for each idletime")
+plot_results(df_for_invocations, df_for_invocations$p99, "response time (ms)", "99th of invocations' response time for each idletime")
+
+plot_results(df_for_replicas, df_for_replicas$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
+plot_results(df_for_replicas[df_for_replicas$idletime != Inf, ], df_for_replicas[df_for_replicas$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
+
+plot_results(df_for_replicas, df_for_replicas$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
+plot_results(df_for_replicas, df_for_replicas$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
+```
+

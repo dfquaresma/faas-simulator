@@ -3,7 +3,7 @@
 Sample execution commend:
 
 ```bash
-go test -bench=BenchmarkSimulatorRequestHedgingOptOracleP99Inf -benchmem -memprofile memprofile_withOracle.out -cpuprofile cpuprofile_withOracle.out
+go test -bench=BenchmarkSimulator -benchmem -memprofile memprofile.out -cpuprofile cpuprofile.out
 ```
 
 To evaluate use the following

@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"math"
-	"strconv"
 
 	"github.com/dfquaresma/faas-simulator/model"
 	"github.com/emirpasic/gods/v2/trees/avltree"
@@ -12,32 +11,25 @@ import (
 type latencyProcessor struct {
 	rp   *resourceProvisioner
 	tree *avltree.Tree[string, float64]
+	p    int
 }
 
-func newLatencyProcessor(rp *resourceProvisioner) *latencyProcessor {
+func newLatencyProcessor(rp *resourceProvisioner, p int) *latencyProcessor {
 	return &latencyProcessor{
 		rp:   rp,
 		tree: avltree.New[string, float64](),
+		p:    p,
 	}
 }
 
-func (lp *latencyProcessor) getCurrTLThreshould(i *model.Invocation) (float64, error) {
-	if lp.tree.Size() < 100 {
-		return math.Inf(0), nil
+func (lp *latencyProcessor) getCurrTLThreshould(i *model.Invocation) float64 {
+	if lp.tree.Size() < 1000 {
+		return math.Inf(1)
 	}
-
-	dur := i.GetDuration()
-	if i.IsCopy() && lp.rp.cfg.Technique == "RequestHedgingOpt" {
-		dur = dur - i.GetTailLatencyThreshold()
+	if !i.IsCopy() {
+		lp.processLatency(i.GetDuration())
 	}
-	lp.processLatency(dur)
-
-	p, err := strconv.Atoi(lp.rp.cfg.TailLatencyProb[1:])
-	if err != nil {
-		return -1, fmt.Errorf("Error parsing tailLatencyProb", err)
-	}
-
-	return lp.getPercentileValue(p), nil
+	return lp.getPercentileValue(lp.p)
 }
 
 func (lp *latencyProcessor) processLatency(duration float64) {

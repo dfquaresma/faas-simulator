@@ -7,6 +7,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 library(dplyr)
+library(ggplot2)
 
 process_df <- function(df) {
   p0 <- quantile(df$duration, probs = 0)
@@ -46,7 +47,7 @@ filter_functions <- function(df) {
 ```
 
 ```{r}
-inv2021 = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021.csv", header = TRUE)
+inv2021 = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021.txt", header = TRUE)
 
 # Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
@@ -72,9 +73,6 @@ inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], 
 
 # save processed data
 write.csv(inv2021_merged, file = "C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/inv2021-processed.csv", row.names = FALSE)
-
-
-
 ```
 
 ```{r}
@@ -92,23 +90,5 @@ compare_traces("e02465de583b6ceffa5b78cce5f10eb27e714a8a6b3aed483be50f30a924071f
 compare_traces("4ebfe961fb725aa1b0e95c0f40be44625edbfbbb9b89aa593e23d81211eb3e87", "function with suffix 3e87")
 compare_traces("7940faf88dec730f882fc978f336d7a6db0c6069120abd95a953e9bfc988aecd", "function with suffix aecd")
 compare_traces("556ccf8758c8c2a20082c161e955405e950439f0503522fe129e709a5dc0e58f", "function with suffix e58f")
-```
-
-
-```{r}
-invoc_vanilla              = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/vanilla-invocations.csv", header = TRUE)
-invoc_requestHedgedDefault = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/RequestHedgingDefault-invocations.csv", header = TRUE)
-invoc_requestHedgedDefault <- transform(invoc_requestHedgedDefault, responseTimeFinal = pmin(responseTime, rHresponseTime))
-
-rep_requestHedgedDefault   = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/RequestHedgingDefault-replicas.csv", header = TRUE)
-rep_vanilla                = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/vanilla-replicas.csv", header = TRUE)
-
-quantile(invoc_vanilla$responseTime, probs = 0.95)
-quantile(invoc_requestHedgedDefault$responseTimeFinal, probs = 0.95)
-
-
-hist(invoc_vanilla$responseTime)
-hist(invoc_requestHedgedDefault$responseTimeFinal)
-
 ```
 

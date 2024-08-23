@@ -1,12 +1,10 @@
 package common
 
 import (
-	"github.com/agoussia/godes"
 	"github.com/dfquaresma/faas-simulator/model"
 )
 
 type selector struct {
-	*godes.Runner
 	provisioners map[string]*resourceProvisioner
 	cfg          model.Config
 }
@@ -29,7 +27,6 @@ func (s *selector) getProvisioner(aid, fid string) *resourceProvisioner {
 func (s *selector) newProvisioner(aid, fid string) *resourceProvisioner {
 	rp := newResourceProvisioner(aid, fid, s.cfg)
 	s.provisioners[aid+fid] = rp
-	godes.AddRunner(rp)
 	return rp
 }
 

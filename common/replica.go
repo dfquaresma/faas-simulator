@@ -10,33 +10,33 @@ import (
 
 type replica struct {
 	*godes.Runner
-	arrivalCond      *godes.BooleanControl
-	terminatedCond   *godes.BooleanControl
-	arrivalQueue     *godes.FIFOQueue
-	rp               *resourceProvisioner
-	replicaID        string
-	appID            string
-	funcID           string
-	idlenessDeadline float64
-	startTS          float64
-	shutdownTS       float64
-	lastWorkTS       float64
-	busyTime         float64
-	upTime           float64
-	reqsProcessed    int
+	arrivalCond    *godes.BooleanControl
+	terminatedCond *godes.BooleanControl
+	arrivalQueue   *godes.FIFOQueue
+	rp             *resourceProvisioner
+	replicaID      string
+	appID          string
+	funcID         string
+	cfg            model.Config
+	startTS        float64
+	shutdownTS     float64
+	lastWorkTS     float64
+	busyTime       float64
+	upTime         float64
+	reqsProcessed  int
 }
 
-func newReplica(rp *resourceProvisioner, rid, aid, fid string, idl float64) *replica {
+func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config) *replica {
 	return &replica{
-		Runner:           &godes.Runner{},
-		arrivalCond:      godes.NewBooleanControl(),
-		terminatedCond:   godes.NewBooleanControl(),
-		arrivalQueue:     godes.NewFIFOQueue("arrival"),
-		rp:               rp,
-		replicaID:        rid,
-		appID:            aid,
-		funcID:           fid,
-		idlenessDeadline: idl,
+		Runner:         &godes.Runner{},
+		arrivalCond:    godes.NewBooleanControl(),
+		terminatedCond: godes.NewBooleanControl(),
+		arrivalQueue:   godes.NewFIFOQueue(rid),
+		rp:             rp,
+		replicaID:      rid,
+		appID:          aid,
+		funcID:         fid,
+		cfg:            cfg,
 	}
 }
 
@@ -52,7 +52,7 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*model.Invocation)
 
-			forwardLatency := r.rp.cfg.ForwardLatency
+			forwardLatency := r.cfg.ForwardLatency
 			godes.Advance(forwardLatency)
 			i.UpdateHopResponse(forwardLatency)
 			i.UpdateHops(r.replicaID)
@@ -77,19 +77,19 @@ func (r *replica) Run() {
 			i.AddProcessedTs(r.lastWorkTS)
 			i.UpdateHopResponse(dur)
 			r.rp.response(i)
-			r.rp.setAvailable(r)
 			r.reqsProcessed += 1
 		}
 		if r.arrivalQueue.Len() == 0 {
 			r.arrivalCond.Set(false)
 			if r.terminatedCond.GetState() {
 				r.shutdownTS = godes.GetSystemTime()
-				if r.idlenessDeadline >= 0 {
-					r.shutdownTS = math.Min(godes.GetSystemTime(), r.lastWorkTS+r.idlenessDeadline)
+				if r.cfg.Idletime >= 0 {
+					r.shutdownTS = math.Min(r.shutdownTS, r.lastWorkTS+r.cfg.Idletime)
 				}
 				r.upTime = r.shutdownTS - r.startTS
 				break
 			}
+			r.rp.setAvailable(r)
 		}
 	}
 }
@@ -97,9 +97,6 @@ func (r *replica) Run() {
 func (r *replica) terminate() {
 	r.terminatedCond.Set(true)
 	r.arrivalCond.Set(true)
-	r.arrivalCond.Clear()
-	r.terminatedCond.Clear()
-	r.arrivalQueue.Clear()
 }
 
 func (r *replica) getOutPut() []string {

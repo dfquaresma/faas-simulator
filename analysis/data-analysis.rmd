@@ -13,7 +13,7 @@ result_path <- "D:/MESTRADO/repo/faas-simulator/results_bigsample"
 techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla')
 probs      <- c('tlprobp90', 'tlprobp95', 'tlprobp99')
 idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime5.0', 'idletime15.0')
-hasOracle <- c('hasOraclefalse') #c('hasOraclefalse', 'hasOracletrue')
+hasOracle <- c('hasOraclefalse', 'hasOracletrue')
 
 technique <- c()
 tailLatencyProb <- c()
@@ -22,6 +22,7 @@ p50 <- c()
 p90 <- c()
 p95 <- c()
 p99 <- c()
+oracle <- c()
 for (t in techs) {
   for (p in probs) {
     for (i in idletimes) {
@@ -37,13 +38,13 @@ for (t in techs) {
         p90 <- c(p90, quantile(results_treated$responseTimeUseful, probs = 0.90))
         p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
         p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
-     
+        oracle <- c(oracle, o == "hasOracletrue")
       }
      
     }
   }
 }
-df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p90, p95, p99)
+df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p90, p95, p99, oracle)
 
 
 uptime <- c()
@@ -62,7 +63,7 @@ for (t in techs) {
     }
   }
 }
-df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount)
+df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount, oracle)
 
 
 df_for_invocations_bkp = df_for_invocations
@@ -98,15 +99,33 @@ plot_results <- function(df, metric, y_label, title) {
     theme_bw()
 }
 
-plot_results(df_for_invocations, df_for_invocations$p50, "response time (ms)", "50th of invocations' response time for each idletime")
-plot_results(df_for_invocations, df_for_invocations$p90, "response time (ms)", "90th of invocations' response time for each idletime")
-plot_results(df_for_invocations, df_for_invocations$p95, "response time (ms)", "95th of invocations' response time for each idletime")
-plot_results(df_for_invocations, df_for_invocations$p99, "response time (ms)", "99th of invocations' response time for each idletime")
+invoc_data = filter(df_for_invocations, oracle == TRUE)
+repl_data = filter(df_for_replicas, oracle == TRUE)
 
-plot_results(df_for_replicas, df_for_replicas$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
-plot_results(df_for_replicas[df_for_replicas$idletime != Inf, ], df_for_replicas[df_for_replicas$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
+plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p90, "response time (ms)", "90th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
 
-plot_results(df_for_replicas, df_for_replicas$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
-plot_results(df_for_replicas, df_for_replicas$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
+plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
+plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
+plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
+plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
+```
+
+
+```{r}
+invoc_data = filter(df_for_invocations, oracle == FALSE)
+repl_data = filter(df_for_replicas, oracle == FALSE)
+
+plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p90, "response time (ms)", "90th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
+
+plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
+plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
+plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
+plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
 ```
 

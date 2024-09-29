@@ -5,7 +5,7 @@
     "forwardLatency": [1],
     "idletime": [-1, 0, 5, 15],
     "tailLatencyProb": ["p99", "p95", "p90"],
-    "technique": ["`GCI`"],
+    "technique": ["GCI"],
     "hasOracle": ["false", "true"]
   }
 }

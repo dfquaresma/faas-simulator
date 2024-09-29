@@ -23,7 +23,7 @@ func newLatencyProcessor(rp *resourceProvisioner, p int) *latencyProcessor {
 }
 
 func (lp *latencyProcessor) getCurrTLThreshould(i *model.Invocation) float64 {
-	if lp.tree.Size() < 1000 {
+	if lp.tree.Size() < 100 {
 		return math.Inf(1)
 	}
 	if !i.IsCopy() {

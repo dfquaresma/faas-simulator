@@ -61,9 +61,8 @@ func (r *replica) Run() {
 				tailLatency := i.GetDuration() - i.GetTailLatencyThreshold()
 				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
 				if shouldSkipReq {
-					godes.Advance(timeToWaste)
 					r.busyTime += timeToWaste
-					r.lastWorkTS = godes.GetSystemTime()
+					r.lastWorkTS = godes.GetSystemTime() + timeToWaste
 					r.rp.setAvailable(r)
 					continue
 				}

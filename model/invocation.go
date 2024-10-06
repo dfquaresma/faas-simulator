@@ -196,6 +196,10 @@ func (i *Invocation) IncrementShedTimes() {
 	i.im.shed_times = i.im.shed_times + 1
 }
 
+func (i *Invocation) GetShedTimes() int {
+	return i.im.shed_times
+}
+
 func (i *Invocation) GetAppID() string {
 	return i.te.appID
 }
@@ -230,6 +234,18 @@ func (i *Invocation) GetDuration() float64 {
 
 func (i *Invocation) GetTailLatencyThreshold() float64 {
 	return i.te.tail_latency_threshold
+}
+
+func (i *Invocation) GetP90() float64 {
+	return i.te.percentile.p90
+}
+
+func (i *Invocation) GetP95() float64 {
+	return i.te.percentile.p95
+}
+
+func (i *Invocation) GetP99() float64 {
+	return i.te.percentile.p99
 }
 
 func (i *Invocation) GetP100() float64 {

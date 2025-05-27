@@ -10,9 +10,9 @@ library(dplyr)
 library(ggplot2)
 
 result_path <- "D:/MESTRADO/repo/faas-simulator/results"
-techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla')
-probs      <- c('tlprobp90', 'tlprobp95', 'tlprobp99')
-idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime5.0', 'idletime15.0')
+techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla', 'GCI')
+probs      <- c('tlprobp95', 'tlprobp99')
+idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
 hasOracle <- c('hasOraclefalse', 'hasOracletrue')
 
 technique <- c()
@@ -84,9 +84,7 @@ parse_values <- function(df) {
 
 df_for_invocations <- parse_values(df_for_invocations)
 df_for_replicas <- parse_values(df_for_replicas)
-```
 
-```{r}
 plot_results <- function(df, metric, y_label, title) {
   df$idletime_f <- factor(df$idletime, levels = c(0, 5, 15, Inf))
   ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique))) +
@@ -95,36 +93,6 @@ plot_results <- function(df, metric, y_label, title) {
     labs(x = "tail latency probability", y = y_label, title = title, colour = "technique") +
     theme_bw()
 }
-
-invoc_data = filter(df_for_invocations, oracle == TRUE)
-repl_data = filter(df_for_replicas, oracle == TRUE)
-
-plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p90, "response time (ms)", "90th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
-
-plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
-plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
-plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
-plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
-```
-
-
-```{r}
-invoc_data = filter(df_for_invocations, oracle == FALSE & technique != "RequestHedgingDefault")
-repl_data = filter(df_for_replicas, oracle == FALSE  & technique != "RequestHedgingDefault")
-
-
-plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p90, "response time (ms)", "90th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
-
-plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
-plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
-plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
-plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
 ```
 
 ```{r}
@@ -135,6 +103,11 @@ invoc_data <- invoc_data %>%
   mutate(technique = ifelse(technique == "RequestHedgingOpt" & oracle == FALSE, "RequestHedgingOptNoOracle", technique))
 repl_data <- repl_data %>%
   mutate(technique = ifelse(technique == "RequestHedgingOpt" & oracle == FALSE, "RequestHedgingOptNoOracle", technique))
+
+invoc_data <- invoc_data %>%
+  mutate(technique = ifelse(technique == "GCI" & oracle == FALSE, "GCINoOracle", technique))
+repl_data <- repl_data %>%
+  mutate(technique = ifelse(technique == "GCI" & oracle == FALSE, "GCINoOracle", technique))
 
 
 plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")

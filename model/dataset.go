@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strconv"
 )
 
@@ -8,18 +9,30 @@ type Dataset struct {
 	iLen        int
 	iterator    int
 	invocations []Invocation
+	coldstart   float64
 }
 
-func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
+func NewDataSet(rows [][]string, tlProb string, hasOracle bool) (*Dataset, error) {
 	invocs := make([]Invocation, len(rows))
+	tailLatencyCount := 0
 	for id, row := range rows {
-		entry, err := ToTraceEntry(row, tlProb)
+		entry, err := ToTraceEntry(row, tlProb, hasOracle)
 		if err != nil {
 			return nil, err
+		}
+		if entry.duration > entry.tail_latency_threshold {
+			tailLatencyCount += 1
 		}
 		invoc := NewInvocation(strconv.Itoa(id), *entry)
 		invocs[id] = *invoc
 	}
+
+	fmt.Printf(
+		"Number of Invocations: %d\nNumber of Tail Latency Reqs: %d\nPercentage Free of Tail Latency: %f\n\n",
+		len(invocs),
+		tailLatencyCount,
+		1-(float64(tailLatencyCount)/float64(len(invocs))),
+	)
 
 	return &Dataset{
 		iLen:        len(invocs),

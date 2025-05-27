@@ -13,6 +13,7 @@ import (
 func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs []string, idletimes, forwardLatencies []int) {
 	count := 1
 	total := len(forwardLatencies) * len(idletimes) * len(tailLatencyProbs) * len(hasOracle) * len(techniques)
+	replayerStats := [][]string{{"id", "elapsedTime"}}
 	for _, f := range forwardLatencies {
 		fLatency := float64(f)
 		for _, i := range idletimes {
@@ -25,7 +26,8 @@ func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs [
 				}
 				for _, p := range tailLatencyProbs {
 					for _, t := range techniques {
-						simulate(tracePath, outputPath, p, t, fLatency, idleTimeFloat, hasOracle, count, total)
+						replayerOut := simulate(tracePath, outputPath, p, t, fLatency, idleTimeFloat, hasOracle, count, total)
+						replayerStats = append(replayerStats, replayerOut)
 						count++
 					}
 				}
@@ -33,9 +35,10 @@ func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs [
 		}
 	}
 
+	io.WriteOutput(outputPath+"/", "replayer-stats.csv", replayerStats)
 }
 
-func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, hasOracle bool, count, total int) {
+func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, hasOracle bool, count, total int) []string {
 	cfg := model.Config{
 		ForwardLatency:  fLatency,
 		Idletime:        idleTimeFloat,
@@ -44,7 +47,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 		HasOracle:       hasOracle,
 	}
 	fmt.Printf(
-		"VALUES FOR CFG:\nForwardLatency:%f\nIdletime:%f\nTailLatencyProb:%s\nTechnique:%s\nHasOracle:%t\n\n",
+		"VALUES FOR CFG:\nForwardLatency: %f\nIdletime: %f\nTailLatencyProb: %s\nTechnique: %s\nHasOracle: %t\n\n",
 		cfg.ForwardLatency,
 		cfg.Idletime,
 		cfg.TailLatencyProb,
@@ -53,7 +56,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	)
 
 	rows := io.ReadInput(tracePath)
-	invocations, err := model.NewDataSet(rows, cfg.TailLatencyProb)
+	invocations, err := model.NewDataSet(rows, cfg.TailLatencyProb, cfg.HasOracle)
 	if err != nil {
 		panic(err)
 	}
@@ -77,4 +80,6 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	io.WriteOutput(outputPath+"/"+technique+"/", simulationName+"-invocations.csv", invocations.GetOutPut())
 	io.WriteOutput(outputPath+"/"+technique+"/", simulationName+"-replicas.csv", selector.GetOutPut())
 	fmt.Println("Results for " + simulationName + " was written\n")
+
+	return replayer.GetOutPut()
 }

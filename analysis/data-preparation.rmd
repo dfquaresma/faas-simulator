@@ -9,6 +9,49 @@ output: pdf_document
 library(dplyr)
 library(ggplot2)
 
+# Function to calculate percentiles for a vector
+calculate_percentiles <- function(x) {
+  if (length(x) <= 1) {
+    return(c(p90 = x[1], p95 = x[1], p99 = x[1], p100 = x[1]))
+  }
+
+  p90 <- quantile(x, probs = 0.90)
+  p95 <- quantile(x, probs = 0.95)
+  p99 <- quantile(x, probs = 0.99)
+  p100 <- quantile(x, probs = 1)
+
+  return(c(p90 = p90, p95 = p95, p99 = p99, p100 = p100))
+}
+
+add_percentile_partials <- function(df) {
+  # Create a new dataframe to store the results
+  result <- df
+
+  # Initialize new columns for the running percentiles
+  result$partials_p90 <- df$duration[1]
+  result$partials_p95 <- df$duration[1]
+  result$partials_p99 <- df$duration[1]
+  result$partials_p100 <- df$duration[1]
+  
+  # Calculate running percentiles for each row
+  for (i in 2:nrow(df)) {
+    # Only use data up to the current row
+    subset_data <- df$duration[1:i]
+  
+    # Calculate percentiles
+    percentiles <- calculate_percentiles(subset_data)
+
+    # Store the percentiles in the result dataframe
+    result$partials_p90[i] <- percentiles["p90.90%"]
+    result$partials_p95[i] <- percentiles["p95.95%"]
+    result$partials_p99[i] <- percentiles["p99.99%"]
+    result$partials_p100[i] <- percentiles["p100.100%"]
+
+  }
+
+  return(result)
+}
+
 process_df <- function(df) {
   p0 <- quantile(df$duration, probs = 0)
   p90 <- quantile(df$duration, probs = 0.90)
@@ -40,21 +83,33 @@ rm_infreq_functions <- function(df) {
   return(df)
 }
 
-
 filter_functions <- function(df) {
-  return(rm_infreq_functions(rm_zero_latency_calls(process_df(df))))
+  return(rm_infreq_functions((rm_zero_latency_calls(process_df(df)))))
 }
 ```
 
 ```{r}
-inv2021 = read.csv("C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021.txt", header = TRUE)
+inv2021 = read.csv("D:/MESTRADO/repo/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021.csv", header = TRUE)
 
 # Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
 # Remove null entries in inv2021_split
-inv2021_split_filtered <- inv2021_split[!sapply(inv2021_split, is.null)]
+inv2021_split_nonull <- inv2021_split[!sapply(inv2021_split, is.null)]
+# apply add_percentile_partials to inv2021_split_nonull dataframe
+inv2021_split_filtered <- lapply(inv2021_split_nonull, add_percentile_partials)
 
-# Merge data 
+# print("absolute percentile")
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p90[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p95[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p99[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p100[5551]
+# print("partial percentiles")
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p90[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p95[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p99[5551]
+# inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p100[5551]
+
+# Merge data  
 inv2021_merged = do.call(rbind, inv2021_split_filtered)
 inv2021_merged = data.frame(
   func = inv2021_merged$func,
@@ -65,14 +120,18 @@ inv2021_merged = data.frame(
   p90 = inv2021_merged$p90,
   p95 = inv2021_merged$p95,
   p99 = inv2021_merged$p99,
-  p100 = inv2021_merged$p100
+  p100 = inv2021_merged$p100,
+  partials_p90 = inv2021_merged$partials_p90,
+  partials_p95 = inv2021_merged$partials_p95,
+  partials_p99 = inv2021_merged$partials_p99,
+  partials_p100 = inv2021_merged$partials_p100
   #is_tail_latency = inv2021_merged$is_tail_latency
 )
 # sort by start_timestamp
-inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, p90, p95, p99, p100)#,is_tail_latency)
+inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, p90, p95, p99, p100, partials_p90, partials_p95, partials_p99, partials_p100) #,is_tail_latency)
 
 # save processed data
-write.csv(inv2021_merged, file = "C:/Users/david/OneDrive/Documentos/GitHub/faas-simulator/azure/inv2021-processed.csv", row.names = FALSE)
+write.csv(inv2021_merged, file = "D:/MESTRADO/repo/faas-simulator/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv", row.names = FALSE)
 ```
 
 ```{r}

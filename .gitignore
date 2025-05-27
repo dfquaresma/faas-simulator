@@ -15,3 +15,5 @@
 # vendor/
 faas-simulator
 *results*
+*.csv
+*tmp*

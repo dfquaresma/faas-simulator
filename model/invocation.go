@@ -20,7 +20,6 @@ type traceEntry struct {
 	percentile             percentile
 	tlProb                 string
 	tail_latency_threshold float64
-	is_tail_latency        bool
 }
 
 type invocationMetadata struct {
@@ -36,6 +35,7 @@ type invocationMetadata struct {
 	rh_hops         []string
 	rh_hopResponses []float64
 	is_copy         bool
+	is_cold_start   bool
 	shed_times      int
 }
 
@@ -66,7 +66,6 @@ func CopyInvocation(i *Invocation) *Invocation {
 			startTS:                i.te.startTS,
 			percentile:             i.te.percentile,
 			tail_latency_threshold: i.te.tail_latency_threshold,
-			is_tail_latency:        i.te.is_tail_latency,
 		},
 		im: invocationMetadata{
 			datasetId:    i.im.datasetId,
@@ -80,7 +79,7 @@ func CopyInvocation(i *Invocation) *Invocation {
 	}
 }
 
-func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
+func ToTraceEntry(row []string, tlProb string, hasOracle bool) (*traceEntry, error) {
 	// Row expected format: func,duration,startts,app,endts
 	appID := row[0]
 	funcID := row[1]
@@ -100,24 +99,49 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	p90, err := strconv.ParseFloat(row[5], 64)
+	absolute_p90, err := strconv.ParseFloat(row[5], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
 	}
 
-	p95, err := strconv.ParseFloat(row[6], 64)
+	absolute_p95, err := strconv.ParseFloat(row[6], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
 	}
 
-	p99, err := strconv.ParseFloat(row[7], 64)
+	absolute_p99, err := strconv.ParseFloat(row[7], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
 	}
 
-	p100, err := strconv.ParseFloat(row[8], 64)
+	absolute_p100, err := strconv.ParseFloat(row[8], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
+	}
+
+	partial_p90, err := strconv.ParseFloat(row[9], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
+	}
+
+	partial_p95, err := strconv.ParseFloat(row[10], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
+	}
+
+	partial_p99, err := strconv.ParseFloat(row[11], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
+	}
+
+	partial_p100, err := strconv.ParseFloat(row[12], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
+	}
+
+	p90, p95, p99, p100 := partial_p90, partial_p95, partial_p99, partial_p100
+	if hasOracle {
+		p90, p95, p99, p100 = absolute_p90, absolute_p95, absolute_p99, absolute_p100
 	}
 
 	var tail_latency_threshold float64
@@ -144,7 +168,6 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 		},
 		tlProb:                 tlProb,
 		tail_latency_threshold: tail_latency_threshold,
-		is_tail_latency:        duration > tail_latency_threshold,
 	}, nil
 }
 
@@ -185,11 +208,19 @@ func (i *Invocation) hasHops() bool {
 }
 
 func (i *Invocation) IsTailLatency() bool {
-	return i.te.is_tail_latency
+	return i.te.duration > i.te.tail_latency_threshold
 }
 
 func (i *Invocation) IsCopy() bool {
 	return i.im.is_copy
+}
+
+func (i *Invocation) IsColdStart() bool {
+	return i.im.is_cold_start
+}
+
+func (i *Invocation) SetAsColdStart() {
+	i.im.is_cold_start = true
 }
 
 func (i *Invocation) IncrementShedTimes() {
@@ -332,14 +363,8 @@ func (i *Invocation) GetOutPut() []string {
 
 func (i *Invocation) SetDuration(nd float64) {
 	i.te.duration = nd
-	i.te.is_tail_latency = nd > i.te.tail_latency_threshold
 }
 
 func (i *Invocation) SetForwardedTs(ft float64) {
 	i.im.forwardedTs = ft
-}
-
-func (i *Invocation) SetTailLatencieThreshold(threshold float64) {
-	i.te.tail_latency_threshold = threshold
-	i.te.is_tail_latency = i.te.duration > i.te.tail_latency_threshold
 }

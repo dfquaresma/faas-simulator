@@ -23,10 +23,11 @@ type replica struct {
 	lastWorkTS     float64
 	busyTime       float64
 	upTime         float64
+	coldstart      float64
 	reqsProcessed  int
 }
 
-func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config) *replica {
+func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config, coldstart float64) *replica {
 	return &replica{
 		Runner:         &godes.Runner{},
 		arrivalCond:    godes.NewBooleanControl(),
@@ -37,6 +38,7 @@ func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config)
 		appID:          aid,
 		funcID:         fid,
 		cfg:            cfg,
+		coldstart:      coldstart,
 	}
 }
 
@@ -57,7 +59,12 @@ func (r *replica) Run() {
 			i.UpdateHopResponse(forwardLatency)
 			i.UpdateHops(r.replicaID)
 
-			if i.IsTailLatency() {
+			if r.reqsProcessed == 0 {
+				// first Req of this replica
+				i.SetDuration(r.coldstart)
+				i.SetAsColdStart()
+
+			} else if i.IsTailLatency() {
 				tailLatency := i.GetDuration() - i.GetTailLatencyThreshold()
 				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
 				if shouldSkipReq {

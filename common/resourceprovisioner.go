@@ -1,7 +1,6 @@
 package common
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/agoussia/godes"
@@ -17,34 +16,26 @@ type resourceProvisioner struct {
 	cfg               model.Config
 	replicas          []*replica
 	technique         *technique
-	lp                *latencyProcessor
+	coldstart         float64
 }
 
-func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string, cfg model.Config, coldstart float64) *resourceProvisioner {
 	rp := &resourceProvisioner{
-		Runner:   &godes.Runner{},
-		appID:    aid,
-		funcID:   fid,
-		rpID:     aid + "-" + fid,
-		replicas: make([]*replica, 0),
-		cfg:      cfg,
+		Runner:    &godes.Runner{},
+		appID:     aid,
+		funcID:    fid,
+		rpID:      aid + "-" + fid,
+		replicas:  make([]*replica, 0),
+		cfg:       cfg,
+		coldstart: coldstart,
 	}
 	rp.technique = newTechnique(rp, cfg.Technique)
 	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
-
-	p, err := strconv.Atoi(cfg.TailLatencyProb[1:])
-	if err != nil {
-		panic("Error parsing tailLatencyProb")
-	}
-	rp.lp = newLatencyProcessor(rp, p)
 
 	return rp
 }
 
 func (rp *resourceProvisioner) forward(i *model.Invocation) {
-	if !rp.cfg.HasOracle {
-		i.SetTailLatencieThreshold(rp.lp.getCurrTLThreshould(i))
-	}
 	rp.getAvailableReplica().process(i)
 	rp.technique.forward(i)
 }
@@ -60,15 +51,18 @@ func (rp *resourceProvisioner) setAvailable(r *replica) {
 func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	for rp.availableReplicas.Len() > 0 {
 		r := rp.availableReplicas.Get().(*replica)
-		if rp.cfg.Idletime < 0 {
-			return r
+		if godes.GetSystemTime() >= r.lastWorkTS {
+			if rp.cfg.Idletime < 0 {
+				return r
+			}
+			if rp.cfg.Idletime >= godes.GetSystemTime()-r.lastWorkTS {
+				r.terminate()
+			} else {
+				return r
+			}
 		}
-		if godes.GetSystemTime()-r.lastWorkTS < rp.cfg.Idletime {
-			return r
-		}
-		r.terminate()
 	}
-	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg, rp.coldstart)
 	godes.AddRunner(replica)
 	rp.replicas = append(rp.replicas, replica)
 	return replica

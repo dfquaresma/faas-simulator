@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/agoussia/godes"
 	"github.com/dfquaresma/faas-simulator/model"
@@ -11,10 +12,11 @@ import (
 
 type replayer struct {
 	*godes.Runner
-	dataset  *model.Dataset
-	selector *selector
-	id       string
-	desc     string
+	dataset     *model.Dataset
+	selector    *selector
+	id          string
+	desc        string
+	elapsedTime time.Duration
 }
 
 func NewReplayer(dataset *model.Dataset, selector *selector, id, desc string) *replayer {
@@ -28,6 +30,7 @@ func NewReplayer(dataset *model.Dataset, selector *selector, id, desc string) *r
 }
 
 func (re *replayer) Run() {
+	start := time.Now()
 	fmt.Println("Starting Replayer...")
 	godes.Run()
 	previousTs := 0.0
@@ -62,4 +65,10 @@ func (re *replayer) Run() {
 	re.selector.terminate()
 	godes.WaitUntilDone()
 	godes.Clear()
+
+	re.elapsedTime = time.Since(start)
+}
+
+func (re *replayer) GetOutPut() []string {
+	return []string{re.id, re.elapsedTime.String()}
 }

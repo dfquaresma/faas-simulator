@@ -6,13 +6,15 @@ import (
 
 	"github.com/agoussia/godes"
 	"github.com/dfquaresma/faas-simulator/model"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 type technique struct {
 	*godes.Runner
-	rp        *resourceProvisioner
-	iIdAidFid map[string]*model.Invocation
-	config    string
+	rp          *resourceProvisioner
+	iIdAidFid   map[string]*model.Invocation
+	config      string
+	poissonDist distuv.Poisson
 }
 
 func newTechnique(rp *resourceProvisioner, t string) *technique {
@@ -29,13 +31,17 @@ func (t *technique) forward(i *model.Invocation) {
 	t.iIdAidFid[i.GetID()] = i
 	if t.config == "RequestHedgingDefault" {
 		iCopy := model.CopyInvocation(i)
-		iCopy.SetDuration(t.newLatency(i.GetP100()))
+		iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 		t.rp.getAvailableReplica().process(iCopy)
 	}
 }
 
-func (t *technique) newLatency(p99 float64) float64 {
-	return rand.Float64() * p99
+func (t *technique) newLatency(mu, sigma float64) float64 {
+	ln := distuv.LogNormal{
+		Mu:    mu,
+		Sigma: sigma,
+	}
+	return ln.Rand()
 }
 
 func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float64) {
@@ -45,7 +51,7 @@ func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float
 		// don't shed the same invocation more than twice
 		if !i.IsColdStart() && i.GetShedTimes() < 2 {
 			i.IncrementShedTimes()
-			i.SetDuration(t.newLatency(i.GetP100()))
+			i.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			t.rp.getAvailableReplica().process(i)
 			return true, tl
 		}
@@ -54,7 +60,7 @@ func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float
 	case "RequestHedgingOpt":
 		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
-			iCopy.SetDuration(t.newLatency(i.GetP100()))
+			iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			iCopy.ResetResponseTime()
 			godes.Advance(i.GetTailLatencyThreshold())
 			t.rp.getAvailableReplica().process(iCopy)

@@ -1,8 +1,9 @@
 package common
 
 import (
-	"math/rand"
 	"time"
+
+	"golang.org/x/exp/rand"
 
 	"github.com/agoussia/godes"
 	"github.com/dfquaresma/faas-simulator/model"
@@ -14,15 +15,16 @@ type technique struct {
 	rp        *resourceProvisioner
 	iIdAidFid map[string]*model.Invocation
 	config    string
+	seed      rand.Source
 }
 
 func newTechnique(rp *resourceProvisioner, t string) *technique {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &technique{
 		Runner:    &godes.Runner{},
 		rp:        rp,
 		iIdAidFid: make(map[string]*model.Invocation),
 		config:    t,
+		seed:      rand.NewSource(uint64(time.Now().Nanosecond())),
 	}
 }
 
@@ -39,6 +41,7 @@ func (t *technique) newLatency(mu, sigma float64) float64 {
 	ln := distuv.LogNormal{
 		Mu:    mu,
 		Sigma: sigma,
+		Src:   t.seed,
 	}
 	return ln.Rand()
 }

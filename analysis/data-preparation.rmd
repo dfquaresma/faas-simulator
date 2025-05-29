@@ -24,57 +24,37 @@ calculate_percentiles <- function(x) {
   return(c(p50 = p50, p90 = p90, p95 = p95, p99 = p99, p100 = p100))
 }
 
-add_mu_and_sigma <- function(df) {
+add_partials_stats <- function(df) {
   # Create a new dataframe to store the results
   result <- df
 
-  log_df <- log(df$duration)
-  result$mu     <- mean(log_df)
-  result$sigma  <- sd(log_df)
-  result$partials_mu     <- mean(log_df)
-  result$partials_sigma  <- sd(log_df)
-
-  # Initialize new columns for the partial running stats
-  result$partials_mu[1] <- mean(log(df$duration[1]))
-  result$partials_sigma[1] <- 0
-
-  # Calculate running stats for each row
-  for (i in 2:nrow(df)) {
+  # Calculate running percentiles for each row
+  for (i in 1:nrow(df)) {
     # Only use data up to the current row
     subset_data <- df$duration[1:i]
-
-    # Calculate Mu and Sigma values
+  
     log_subset <- log(subset_data)
     result$partials_mu[i] <- mean(log_subset)
-    result$partials_sigma[i] <- sd(log_subset)
-  }
-  return(result)
-}
+    if (i == 1) {
+      result$partials_sigma[i] <- 0
 
-add_percentile_partials <- function(df) {
-  # Create a new dataframe to store the results
-  result <- df
-
-  # Initialize new columns for the running percentiles
-  result$partials_p50 <- df$duration[1]
-  result$partials_p90 <- df$duration[1]
-  result$partials_p95 <- df$duration[1]
-  result$partials_p99 <- df$duration[1]
-  result$partials_p100 <- df$duration[1]
+      result$partials_p50[i] <- df$duration[1]
+      result$partials_p90[i] <- df$duration[1]
+      result$partials_p95[i] <- df$duration[1]
+      result$partials_p99[i] <- df$duration[1]
+      result$partials_p100[i] <- df$duration[1]
+    } else {
+      result$partials_sigma[i] <- sd(log_subset)
   
-  # Calculate running percentiles for each row
-  for (i in 2:nrow(df)) {
-    # Only use data up to the current row
-    subset_data <- df$duration[1:i]
-
-    # Calculate percentiles
-    percentiles <- calculate_percentiles(subset_data)
-    # Store the percentiles in the result dataframe
-    result$partials_p50[i] <- percentiles["p50.50%"]
-    result$partials_p90[i] <- percentiles["p90.90%"]
-    result$partials_p95[i] <- percentiles["p95.95%"]
-    result$partials_p99[i] <- percentiles["p99.99%"]
-    result$partials_p100[i] <- percentiles["p100.100%"]
+      # Calculate percentiles
+      percentiles <- calculate_percentiles(subset_data)
+      # Store the percentiles in the result dataframe
+      result$partials_p50[i] <- percentiles["p50.50%"]
+      result$partials_p90[i] <- percentiles["p90.90%"]
+      result$partials_p95[i] <- percentiles["p95.95%"]
+      result$partials_p99[i] <- percentiles["p99.99%"]
+      result$partials_p100[i] <- percentiles["p100.100%"]
+    }
 
   }
 
@@ -94,8 +74,11 @@ process_df <- function(df) {
   df$p95   <- p95
   df$p99   <- p99
   df$p100  <- p100
-  #df$is_tail_latency <- "false"
-  #df[df$duration > p95, "is_tail_latency"] <- "true"
+  
+  log_df <- log(df$duration)
+  df$mu     <- mean(log_df)
+  df$sigma  <- sd(log_df)
+
   return(df)
 }
 
@@ -125,11 +108,10 @@ inv2021 = read.csv("D:/MESTRADO/repo/faas-simulator/azure/sample-1M.csv", header
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
 # Remove null entries in inv2021_split
 inv2021_split_nonull <- inv2021_split[!sapply(inv2021_split, is.null)]
-# apply add_percentile_partials to inv2021_split_nonull dataframe
-inv2021_split_partials <- lapply(inv2021_split_nonull, add_percentile_partials)
-inv2021_split_withmusigma <- lapply(inv2021_split_partials, add_mu_and_sigma)
-inv2021_split_filtered <- inv2021_split_withmusigma
 
+# apply add_percentile_partials to inv2021_split_nonull dataframe
+inv2021_split_partials <- lapply(inv2021_split_nonull, add_partials_stats)
+inv2021_split_filtered <- inv2021_split_partials
 
 print("absolute percentile")
 inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p50[5551]
@@ -191,8 +173,6 @@ compare_traces("e02465de583b6ceffa5b78cce5f10eb27e714a8a6b3aed483be50f30a924071f
 compare_traces("4ebfe961fb725aa1b0e95c0f40be44625edbfbbb9b89aa593e23d81211eb3e87", "function with suffix 3e87")
 compare_traces("7940faf88dec730f882fc978f336d7a6db0c6069120abd95a953e9bfc988aecd", "function with suffix aecd")
 compare_traces("556ccf8758c8c2a20082c161e955405e950439f0503522fe129e709a5dc0e58f", "function with suffix e58f")
-
-
 
 tmp <- subset(inv2021_merged, func == "b74c4ab0e0a6349700abbf5ca5f97d54005710f2289f96a42df946539971c7f3")
 

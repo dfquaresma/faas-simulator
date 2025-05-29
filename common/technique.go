@@ -11,10 +11,9 @@ import (
 
 type technique struct {
 	*godes.Runner
-	rp          *resourceProvisioner
-	iIdAidFid   map[string]*model.Invocation
-	config      string
-	poissonDist distuv.Poisson
+	rp        *resourceProvisioner
+	iIdAidFid map[string]*model.Invocation
+	config    string
 }
 
 func newTechnique(rp *resourceProvisioner, t string) *technique {
@@ -49,7 +48,7 @@ func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float
 	case "GCI":
 		// shed only requests that are not coldstart
 		// don't shed the same invocation more than twice
-		if !i.IsColdStart() && i.GetShedTimes() < 2 {
+		if !i.IsColdStart() {
 			i.IncrementShedTimes()
 			i.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			t.rp.getAvailableReplica().process(i)

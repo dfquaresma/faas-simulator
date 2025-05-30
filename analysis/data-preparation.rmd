@@ -97,37 +97,26 @@ rm_infreq_functions <- function(df) {
 }
 
 filter_functions <- function(df) {
-  return(rm_infreq_functions((rm_zero_latency_calls(process_df(df)))))
+  return(rm_infreq_functions((rm_zero_latency_calls(df))))
 }
 ```
 
 ```{r}
-inv2021 = read.csv("D:/MESTRADO/repo/faas-simulator/azure/sample-1M.csv", header = TRUE)
+azure_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
+inv2021 = read.csv(paste(azure_path, "/sample-1M.csv", sep=""), header = TRUE)
 
 # Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
 # Remove null entries in inv2021_split
 inv2021_split_nonull <- inv2021_split[!sapply(inv2021_split, is.null)]
+# Add percentiles, mu and sigma values
+inv2021_split_processed <- lapply(inv2021_split_nonull, process_df)
 
 # apply add_percentile_partials to inv2021_split_nonull dataframe
-inv2021_split_partials <- lapply(inv2021_split_nonull, add_partials_stats)
-inv2021_split_filtered <- inv2021_split_partials
-
-print("absolute percentile")
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p50[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p90[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p95[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p99[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$p100[5551]
-print("partial percentiles")
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p50[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p90[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p95[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p99[5551]
-inv2021_split_filtered[["155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534"]]$partials_p100[5551]
+inv2021_split_final <- lapply(inv2021_split_processed, add_partials_stats)
 
 # Merge data  
-inv2021_merged = do.call(rbind, inv2021_split_filtered)
+inv2021_merged = do.call(rbind, inv2021_split_final)
 inv2021_merged = data.frame(
   func = inv2021_merged$func,
   duration = inv2021_merged$duration,
@@ -154,8 +143,7 @@ inv2021_merged = data.frame(
 inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, mu, sigma, p50, p90, p95, p99, p100, partials_mu, partials_sigma, partials_p50, partials_p90, partials_p95, partials_p99, partials_p100) #,is_tail_latency)
 
 # save processed data
-write.csv(inv2021_merged, file = "D:/MESTRADO/repo/faas-simulator/azure/sample-1M-processed.csv", row.names = FALSE)
-
+write.csv(inv2021_merged, file = paste(azure_path, "/sample-1M-processed.csv", sep=""), row.names = FALSE)
 ```
 
 ```{r}
@@ -174,7 +162,6 @@ compare_traces("4ebfe961fb725aa1b0e95c0f40be44625edbfbbb9b89aa593e23d81211eb3e87
 compare_traces("7940faf88dec730f882fc978f336d7a6db0c6069120abd95a953e9bfc988aecd", "function with suffix aecd")
 compare_traces("556ccf8758c8c2a20082c161e955405e950439f0503522fe129e709a5dc0e58f", "function with suffix e58f")
 
-tmp <- subset(inv2021_merged, func == "b74c4ab0e0a6349700abbf5ca5f97d54005710f2289f96a42df946539971c7f3")
-
+filter_to_view <- subset(inv2021_merged, func == "b74c4ab0e0a6349700abbf5ca5f97d54005710f2289f96a42df946539971c7f3")
 ```
 

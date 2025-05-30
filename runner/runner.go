@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/dfquaresma/faas-simulator/common"
 	"github.com/dfquaresma/faas-simulator/io"
@@ -11,6 +12,7 @@ import (
 )
 
 func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs []string, idletimes, forwardLatencies []int) {
+	start := time.Now()
 	count := 1
 	total := len(forwardLatencies) * len(idletimes) * len(tailLatencyProbs) * len(hasOracle) * len(techniques)
 	replayerStats := [][]string{{"id", "elapsedTime"}}
@@ -35,6 +37,7 @@ func Sim(tracePath, outputPath string, techniques, hasOracle, tailLatencyProbs [
 		}
 	}
 
+	fmt.Printf("Total Simulation Time: %s", time.Since(start))
 	io.WriteOutput(outputPath+"/", "replayer-stats.csv", replayerStats)
 }
 

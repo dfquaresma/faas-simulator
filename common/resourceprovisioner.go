@@ -51,16 +51,10 @@ func (rp *resourceProvisioner) setAvailable(r *replica) {
 func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	for rp.availableReplicas.Len() > 0 {
 		r := rp.availableReplicas.Get().(*replica)
-		if godes.GetSystemTime() >= r.lastWorkTS {
-			if rp.cfg.Idletime < 0 {
-				return r
-			}
-			if rp.cfg.Idletime >= godes.GetSystemTime()-r.lastWorkTS {
-				r.terminate()
-			} else {
-				return r
-			}
+		if rp.cfg.Idletime < 0 || rp.cfg.Idletime > godes.GetSystemTime()-r.lastWorkTS {
+			return r
 		}
+		r.terminate()
 	}
 	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg, rp.coldstart)
 	godes.AddRunner(replica)

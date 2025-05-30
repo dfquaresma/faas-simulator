@@ -12,6 +12,7 @@ type replica struct {
 	*godes.Runner
 	arrivalCond    *godes.BooleanControl
 	terminatedCond *godes.BooleanControl
+	isBusy         *godes.BooleanControl
 	arrivalQueue   *godes.FIFOQueue
 	rp             *resourceProvisioner
 	replicaID      string
@@ -32,6 +33,7 @@ func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config,
 		Runner:         &godes.Runner{},
 		arrivalCond:    godes.NewBooleanControl(),
 		terminatedCond: godes.NewBooleanControl(),
+		isBusy:         godes.NewBooleanControl(),
 		arrivalQueue:   godes.NewFIFOQueue(rid),
 		rp:             rp,
 		replicaID:      rid,
@@ -47,11 +49,20 @@ func (r *replica) process(i *model.Invocation) {
 	r.arrivalCond.Set(true)
 }
 
+func (r *replica) IsBusy() bool {
+	return r.isBusy.GetState()
+}
+
+func (r *replica) SetBusy() {
+	r.isBusy.Set(true)
+}
+
 func (r *replica) Run() {
 	r.startTS = godes.GetSystemTime()
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
+			r.isBusy.Set(true)
 			i := r.arrivalQueue.Get().(*model.Invocation)
 
 			forwardLatency := r.cfg.ForwardLatency
@@ -95,6 +106,7 @@ func (r *replica) Run() {
 				r.upTime = r.shutdownTS - r.startTS
 				break
 			}
+			r.isBusy.Set(false)
 			r.rp.setAvailable(r)
 		}
 	}

@@ -9,11 +9,11 @@ output: pdf_document
 library(dplyr)
 library(ggplot2)
 
-result_path <- "D:/MESTRADO/repo/faas-simulator/results_sample"
+result_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_sample"
 techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla', 'GCI')
 probs      <- c('tlprobp95', 'tlprobp99')
-idletimes  <- c('idletimeINF') #c('idletimeINF', 'idletime0.0', 'idletime15.0')
-hasOracle <- c('hasOracletrue') #c('hasOraclefalse', 'hasOracletrue')
+idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
+hasOracle <- c('hasOraclefalse', 'hasOracletrue')
 
 technique <- c()
 tailLatencyProb <- c()

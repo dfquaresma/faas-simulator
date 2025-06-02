@@ -24,11 +24,10 @@ type replica struct {
 	lastWorkTS     float64
 	busyTime       float64
 	upTime         float64
-	coldstart      float64
 	reqsProcessed  int
 }
 
-func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config, coldstart float64) *replica {
+func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config) *replica {
 	return &replica{
 		Runner:         &godes.Runner{},
 		arrivalCond:    godes.NewBooleanControl(),
@@ -40,7 +39,6 @@ func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config,
 		appID:          aid,
 		funcID:         fid,
 		cfg:            cfg,
-		coldstart:      coldstart,
 	}
 }
 
@@ -70,29 +68,41 @@ func (r *replica) Run() {
 			i.UpdateHopResponse(forwardLatency)
 			i.UpdateHops(r.replicaID)
 
+			dur := i.GetDuration()
 			if r.reqsProcessed == 0 {
 				// first Req of this replica
-				i.SetDuration(r.coldstart)
+				i.SetDuration(i.GetP100())
 				i.SetAsColdStart()
+				dur = i.GetP100()
+			}
 
-			} else if i.IsTailLatency() {
-				tailLatency := i.GetDuration() - i.GetTailLatencyThreshold()
-				shouldSkipReq, timeToWaste := r.rp.warnReqLatency(i, tailLatency)
-				if shouldSkipReq {
-					r.busyTime += timeToWaste
-					r.lastWorkTS = godes.GetSystemTime() + timeToWaste
+			if i.IsTailLatency() {
+				tailLatencyThreshold := i.GetTailLatencyThreshold()
+				tailLatency := i.GetDuration() - tailLatencyThreshold
+				switch r.cfg.Technique {
+				case "GCI":
+					r.rp.warnReqLatency(i)
+					godes.Advance(tailLatencyThreshold)
+					r.busyTime += tailLatencyThreshold
+					r.lastWorkTS = godes.GetSystemTime()
+					r.isBusy.Set(false)
 					r.rp.setAvailable(r)
 					continue
+
+				case "RequestHedgingOpt":
+					godes.Advance(tailLatencyThreshold)
+					r.busyTime += tailLatencyThreshold
+					dur = tailLatency
+					r.rp.warnReqLatency(i)
 				}
 			}
 
-			dur := i.GetDuration()
 			godes.Advance(dur)
 			r.busyTime += dur
 
 			r.lastWorkTS = godes.GetSystemTime()
 			i.AddProcessedTs(r.lastWorkTS)
-			i.UpdateHopResponse(dur)
+			i.UpdateHopResponse(i.GetDuration())
 			r.rp.response(i)
 			r.reqsProcessed += 1
 		}

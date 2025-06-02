@@ -28,15 +28,6 @@ func newTechnique(rp *resourceProvisioner, t string) *technique {
 	}
 }
 
-func (t *technique) forward(i *model.Invocation) {
-	t.iIdAidFid[i.GetID()] = i
-	if t.config == "RequestHedgingDefault" {
-		iCopy := model.CopyInvocation(i)
-		iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
-		t.rp.getAvailableReplica().process(iCopy)
-	}
-}
-
 func (t *technique) newLatency(mu, sigma float64) float64 {
 	ln := distuv.LogNormal{
 		Mu:    mu,
@@ -46,32 +37,31 @@ func (t *technique) newLatency(mu, sigma float64) float64 {
 	return ln.Rand()
 }
 
-func (t *technique) processWarning(i *model.Invocation, tl float64) (bool, float64) {
+func (t *technique) forward(i *model.Invocation) {
+	t.iIdAidFid[i.GetID()] = i
+	if t.config == "RequestHedgingDefault" {
+		iCopy := model.CopyInvocation(i)
+		iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+		t.rp.getAvailableReplica().process(iCopy)
+	}
+}
+
+func (t *technique) processWarning(i *model.Invocation) {
 	switch t.config {
 	case "GCI":
-		// shed only requests that are not coldstart
-		// don't shed the same invocation more than twice
 		if !i.IsColdStart() {
 			i.IncrementShedTimes()
 			i.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			t.rp.getAvailableReplica().process(i)
-			return true, tl
 		}
-		return false, 0
 
 	case "RequestHedgingOpt":
 		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
 			iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			iCopy.ResetResponseTime()
-			godes.Advance(i.GetTailLatencyThreshold())
 			t.rp.getAvailableReplica().process(iCopy)
-			return true, tl
 		}
-		return false, 0
-
-	default:
-		return false, 0
 	}
 }
 

@@ -16,18 +16,16 @@ type resourceProvisioner struct {
 	cfg               model.Config
 	replicas          []*replica
 	technique         *technique
-	coldstart         float64
 }
 
-func newResourceProvisioner(aid, fid string, cfg model.Config, coldstart float64) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisioner {
 	rp := &resourceProvisioner{
-		Runner:    &godes.Runner{},
-		appID:     aid,
-		funcID:    fid,
-		rpID:      aid + "-" + fid,
-		replicas:  make([]*replica, 0),
-		cfg:       cfg,
-		coldstart: coldstart,
+		Runner:   &godes.Runner{},
+		appID:    aid,
+		funcID:   fid,
+		rpID:     aid + "-" + fid,
+		replicas: make([]*replica, 0),
+		cfg:      cfg,
 	}
 	rp.technique = newTechnique(rp, cfg.Technique)
 	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
@@ -56,14 +54,14 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 		}
 		r.terminate()
 	}
-	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg, rp.coldstart)
+	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg)
 	godes.AddRunner(replica)
 	rp.replicas = append(rp.replicas, replica)
 	return replica
 }
 
-func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation, tl float64) (bool, float64) {
-	return rp.technique.processWarning(i, tl)
+func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation) {
+	rp.technique.processWarning(i)
 }
 
 func (rp *resourceProvisioner) terminate() {

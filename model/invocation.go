@@ -17,6 +17,7 @@ type traceEntry struct {
 	duration               float64
 	endTS                  float64
 	startTS                float64
+	coldStart              float64
 	mu                     float64
 	sigma                  float64
 	percentile             percentile
@@ -25,28 +26,31 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	datasetId       string
-	forwardedTs     float64
-	processedTs     []float64
-	responseTime    float64
-	hops            []string
-	hopResponses    []float64
+	datasetId    string
+	forwardedTs  float64
+	processedTs  []float64
+	responseTime float64
+	hopRefs      []string
+	hopResponses []float64
+
 	rh_forwardedTs  float64
 	rh_processedTs  []float64
 	rh_responseTime float64
 	rh_hops         []string
 	rh_hopResponses []float64
-	is_copy         bool
-	is_cold_start   bool
-	shed_times      int
+
+	is_copy       bool
+	is_cold_start bool
+	shed_times    float64
 }
 
 type percentile struct {
-	p50  float64
-	p90  float64
-	p95  float64
-	p99  float64
-	p100 float64
+	p50   float64
+	p95   float64
+	p99   float64
+	p999  float64
+	p9999 float64
+	p100  float64
 }
 
 func NewInvocation(id string, te traceEntry) *Invocation {
@@ -75,14 +79,14 @@ func CopyInvocation(i *Invocation) *Invocation {
 			forwardedTs:  i.im.forwardedTs,
 			processedTs:  i.im.processedTs,
 			responseTime: i.im.responseTime,
-			hops:         []string{},
+			hopRefs:      []string{},
 			hopResponses: []float64{},
 			is_copy:      true,
 		},
 	}
 }
 
-func ToTraceEntry(row []string, tlProb string, hasOracle bool) (*traceEntry, error) {
+func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 	// Row expected format: func,duration,startts,app,endts
 	appID := row[0]
 	funcID := row[1]
@@ -102,105 +106,74 @@ func ToTraceEntry(row []string, tlProb string, hasOracle bool) (*traceEntry, err
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	absolute_mu, err := strconv.ParseFloat(row[5], 64)
+	mu, err := strconv.ParseFloat(row[5], 64)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
+		return nil, fmt.Errorf("Error parsing mu in row (%v): %q", row, err)
 	}
 
-	absolute_sigma, err := strconv.ParseFloat(row[6], 64)
+	sigma, err := strconv.ParseFloat(row[6], 64)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
+		return nil, fmt.Errorf("Error parsing sigma in row (%v): %q", row, err)
 	}
 
-	absolute_p50, err := strconv.ParseFloat(row[7], 64)
+	p50, err := strconv.ParseFloat(row[7], 64)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
+		return nil, fmt.Errorf("Error parsing p50 in row (%v): %q", row, err)
 	}
 
-	absolute_p90, err := strconv.ParseFloat(row[8], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
-	}
-
-	absolute_p95, err := strconv.ParseFloat(row[9], 64)
+	p95, err := strconv.ParseFloat(row[8], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
 	}
 
-	absolute_p99, err := strconv.ParseFloat(row[10], 64)
+	p99, err := strconv.ParseFloat(row[9], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
 	}
 
-	absolute_p100, err := strconv.ParseFloat(row[11], 64)
+	p999, err := strconv.ParseFloat(row[10], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p999 in row (%v): %q", row, err)
+	}
+
+	p9999, err := strconv.ParseFloat(row[11], 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing p9999 in row (%v): %q", row, err)
+	}
+
+	p100, err := strconv.ParseFloat(row[12], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
-	}
-
-	partial_mu, err := strconv.ParseFloat(row[12], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
-	}
-
-	partial_sigma, err := strconv.ParseFloat(row[13], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
-	}
-
-	partial_p50, err := strconv.ParseFloat(row[14], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
-	}
-
-	partial_p90, err := strconv.ParseFloat(row[15], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p90 in row (%v): %q", row, err)
-	}
-
-	partial_p95, err := strconv.ParseFloat(row[16], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
-	}
-
-	partial_p99, err := strconv.ParseFloat(row[17], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
-	}
-
-	partial_p100, err := strconv.ParseFloat(row[18], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
-	}
-
-	mu, sigma, p50, p90, p95, p99, p100 := partial_mu, partial_sigma, partial_p50, partial_p90, partial_p95, partial_p99, partial_p100
-	if hasOracle {
-		mu, sigma, p50, p90, p95, p99, p100 = absolute_mu, absolute_sigma, absolute_p50, absolute_p90, absolute_p95, absolute_p99, absolute_p100
 	}
 
 	var tail_latency_threshold float64
 	switch tlProb {
-	case "p90":
-		tail_latency_threshold = p90
 	case "p95":
 		tail_latency_threshold = p95
 	case "p99":
 		tail_latency_threshold = p99
+	case "p999":
+		tail_latency_threshold = p999
+	case "p9999":
+		tail_latency_threshold = p9999
 	}
 
 	return &traceEntry{
-		appID:    appID,
-		funcID:   funcID,
-		duration: duration,
-		endTS:    endTS,
-		startTS:  startTS,
-		mu:       mu,
-		sigma:    sigma,
+		appID:     appID,
+		funcID:    funcID,
+		duration:  duration,
+		endTS:     endTS,
+		startTS:   startTS,
+		coldStart: p100,
+		mu:        mu,
+		sigma:     sigma,
 		percentile: percentile{
-			p50:  p50,
-			p90:  p90,
-			p95:  p95,
-			p99:  p99,
-			p100: p100,
+			p50:   p50,
+			p95:   p95,
+			p99:   p99,
+			p999:  p999,
+			p9999: p9999,
+			p100:  p100,
 		},
 		tlProb:                 tlProb,
 		tail_latency_threshold: tail_latency_threshold,
@@ -211,27 +184,13 @@ func (i *Invocation) AddProcessedTs(pt float64) {
 	i.im.processedTs = append(i.im.processedTs, pt)
 }
 
-func (i *Invocation) ResetResponseTime() {
-	i.im.responseTime = 0
-}
-
-func (i *Invocation) UpdateHops(replicaID string) {
-	i.im.hops = append(i.im.hops, replicaID)
-}
-
-func (i *Invocation) removeLastHop() {
-	if i.hasHops() {
-		i.im.hops = i.im.hops[:len(i.im.hops)-1]
-		i.im.hopResponses = i.im.hopResponses[:len(i.im.hopResponses)-1]
-	}
-}
-
-func (i *Invocation) UpdateHopResponse(hopResponse float64) {
+func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
+	i.im.hopRefs = append(i.im.hopRefs, replicaID)
 	i.im.hopResponses = append(i.im.hopResponses, hopResponse)
 	i.im.responseTime += hopResponse
 }
 
-func (i *Invocation) UpdateRhInvocationMetadata(rh_forwardedTs float64, rh_processedTs []float64, rh_responseTime float64, rh_hops []string, rh_hopResponses []float64) {
+func (i *Invocation) UpdateRhInvocationMetadata(rh_forwardedTs, rh_responseTime float64, rh_processedTs, rh_hopResponses []float64, rh_hops []string) {
 	i.im.rh_forwardedTs = rh_forwardedTs
 	i.im.rh_processedTs = rh_processedTs
 	i.im.rh_responseTime = rh_responseTime
@@ -240,7 +199,7 @@ func (i *Invocation) UpdateRhInvocationMetadata(rh_forwardedTs float64, rh_proce
 }
 
 func (i *Invocation) hasHops() bool {
-	return len(i.im.hops) != 0 && len(i.im.hopResponses) != 0
+	return len(i.im.hopRefs) != 0 && len(i.im.hopResponses) != 0
 }
 
 func (i *Invocation) IsTailLatency() bool {
@@ -263,7 +222,7 @@ func (i *Invocation) IncrementShedTimes() {
 	i.im.shed_times = i.im.shed_times + 1
 }
 
-func (i *Invocation) GetShedTimes() int {
+func (i *Invocation) GetShedTimes() float64 {
 	return i.im.shed_times
 }
 
@@ -284,7 +243,7 @@ func (i *Invocation) GetResponseTime() float64 {
 }
 
 func (i *Invocation) GetHops() []string {
-	return i.im.hops
+	return i.im.hopRefs
 }
 
 func (i *Invocation) GetHopResponses() []float64 {
@@ -315,10 +274,6 @@ func (i *Invocation) GetP50() float64 {
 	return i.te.percentile.p50
 }
 
-func (i *Invocation) GetP90() float64 {
-	return i.te.percentile.p90
-}
-
 func (i *Invocation) GetP95() float64 {
 	return i.te.percentile.p95
 }
@@ -327,8 +282,20 @@ func (i *Invocation) GetP99() float64 {
 	return i.te.percentile.p99
 }
 
+func (i *Invocation) GetP999() float64 {
+	return i.te.percentile.p999
+}
+
+func (i *Invocation) GetP9999() float64 {
+	return i.te.percentile.p9999
+}
+
 func (i *Invocation) GetP100() float64 {
 	return i.te.percentile.p100
+}
+
+func (i *Invocation) GetColdStart() float64 {
+	return i.te.coldStart
 }
 
 func (i *Invocation) GetStartTS() float64 {
@@ -348,7 +315,7 @@ func (i *Invocation) GetLastProcessedTs() float64 {
 }
 
 func (i *Invocation) GetLastHop() string {
-	return i.im.hops[len(i.im.hops)-1]
+	return i.im.hopRefs[len(i.im.hopRefs)-1]
 }
 
 func (i *Invocation) GetLastHopResponse() float64 {
@@ -373,16 +340,6 @@ func (i *Invocation) GetOutPut() []string {
 		rh_processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 
-	var tl_threshold_accuracy float64
-	switch i.te.tlProb {
-	case "p90":
-		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p90
-	case "p95":
-		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p95
-	case "p99":
-		tl_threshold_accuracy = i.te.tail_latency_threshold / i.te.percentile.p99
-	}
-
 	return []string{
 		i.te.appID,
 		i.te.funcID,
@@ -393,19 +350,15 @@ func (i *Invocation) GetOutPut() []string {
 		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
 		strings.Join(processedTsStr, ";"),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
-		strings.Join(i.im.hops, ";"),
+		strconv.FormatFloat(i.te.tail_latency_threshold, 'f', -1, 64),
+		strconv.FormatFloat(i.im.shed_times, 'f', -1, 64),
+		strings.Join(i.im.hopRefs, ";"),
 		strings.Join(hopResponsesStr, ";"),
 		strconv.FormatFloat(i.im.rh_forwardedTs, 'f', -1, 64),
 		strings.Join(rh_processedTsStr, ";"),
 		strconv.FormatFloat(i.im.rh_responseTime, 'f', -1, 64),
 		strings.Join(i.im.rh_hops, ";"),
 		strings.Join(rh_hopResponsesStr, ";"),
-		strconv.FormatFloat(tl_threshold_accuracy, 'f', -1, 64),
-		strconv.FormatFloat(i.te.tail_latency_threshold, 'f', -1, 64),
-		strconv.FormatFloat(i.te.percentile.p90, 'f', -1, 64),
-		strconv.FormatFloat(i.te.percentile.p95, 'f', -1, 64),
-		strconv.FormatFloat(i.te.percentile.p99, 'f', -1, 64),
-		strconv.FormatFloat(i.te.percentile.p100, 'f', -1, 64),
 	}
 }
 

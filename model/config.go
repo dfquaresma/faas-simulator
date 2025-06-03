@@ -6,5 +6,4 @@ type Config struct {
 	TailLatency     float64
 	TailLatencyProb string
 	Technique       string
-	HasOracle       bool
 }

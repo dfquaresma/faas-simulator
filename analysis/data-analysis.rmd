@@ -10,42 +10,39 @@ library(dplyr)
 library(ggplot2)
 
 result_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_sample"
-techs <- c('RequestHedgingOpt', 'RequestHedgingDefault', 'Vanilla', 'GCI')
-probs      <- c('tlprobp95', 'tlprobp99')
+techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
+probs      <- c('tlprobp95', 'tlprobp99', 'tlprobp999', 'tlprobp9999')
 idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
-hasOracle <- c('hasOraclefalse', 'hasOracletrue')
 
 technique <- c()
 tailLatencyProb <- c()
 idletime <- c()
 p50 <- c()
-p90 <- c()
 p95 <- c()
 p99 <- c()
-oracle <- c()
+p999 <- c()
+p9999 <- c()
 for (t in techs) {
   for (p in probs) {
     for (i in idletimes) {
-      for (o in hasOracle) {
-        fileName = paste(paste(t, o, i, p, sep = "_"), "invocations.csv", sep="-")
-        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
-        results_treated <- select(transform(results, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
-        results_treated$responseTimeUseful <- ifelse(results_treated$minResponseTime != 0, results_treated$minResponseTime, results_treated$responseTime)
-        technique <- c(technique, t)
-        tailLatencyProb <- c(tailLatencyProb, p)
-        idletime <- c(idletime, i)
-        p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
-        p90 <- c(p90, quantile(results_treated$responseTimeUseful, probs = 0.90))
-        p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
-        p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
-        oracle <- c(oracle, o == "hasOracletrue")
-      }
-     
+      fileName = paste(paste(t, i, p, sep = "_"), "invocations.csv", sep="-")
+      results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+
+      results_treated <- select(transform(results, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+      results_treated$responseTimeUseful <- ifelse(results_treated$minResponseTime != 0, results_treated$minResponseTime, results_treated$responseTime)
+
+      technique <- c(technique, t)
+      tailLatencyProb <- c(tailLatencyProb, p)
+      idletime <- c(idletime, i)
+      p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
+      p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
+      p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
+      p999 <- c(p999, quantile(results_treated$responseTimeUseful, probs = 0.999))
+      p9999 <- c(p9999, quantile(results_treated$responseTimeUseful, probs = 0.9999))
     }
   }
 }
-df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p90, p95, p99, oracle)
-
+df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p95, p99, p999, p9999)
 
 uptime <- c()
 busyTime <- c()
@@ -53,29 +50,27 @@ replicasCount <- c()
 for (t in techs) {
   for (p in probs) {
     for (i in idletimes) {
-      for (o in hasOracle) {
-        fileName = paste(paste(t, o, i, p, sep = "_"), "replicas.csv", sep="-")
-        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
-        uptime <- c(uptime, sum(results$upTime))
-        busyTime <- c(busyTime, sum(results$busyTime))
-        replicasCount <- c(replicasCount, nrow(results))
-      }
+      fileName = paste(paste(t, i, p, sep = "_"), "replicas.csv", sep="-")
+      results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+      uptime <- c(uptime, sum(results$upTime))
+      busyTime <- c(busyTime, sum(results$busyTime))
+      replicasCount <- c(replicasCount, nrow(results))
     }
   }
 }
-df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount, oracle)
+df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount)
 
 
 df_for_invocations_bkp = df_for_invocations
 df_for_replicas_bkp = df_for_replicas
 
 parse_values <- function(df) {
-  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp90", 90, tailLatencyProb))
   df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp95", 95, tailLatencyProb))
   df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp99", 99, tailLatencyProb))
+  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp999", 999, tailLatencyProb))
+  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp9999", 9999, tailLatencyProb))
 
   df <- df %>% mutate(idletime = ifelse(idletime == "idletime0.0", 0, idletime))
-  df <- df %>% mutate(idletime = ifelse(idletime == "idletime5.0", 5, idletime))
   df <- df %>% mutate(idletime = ifelse(idletime == "idletime15.0", 15, idletime))
   df <- df %>% mutate(idletime = ifelse(idletime == "idletimeINF", Inf, idletime))
 
@@ -86,10 +81,10 @@ df_for_invocations <- parse_values(df_for_invocations)
 df_for_replicas <- parse_values(df_for_replicas)
 
 plot_results <- function(df, metric, y_label, title) {
-  df$idletime_f <- factor(df$idletime, levels = c(0, 5, 15, Inf))
+  df$idletime_f <- factor(df$idletime, levels = c(0, 15, Inf))
   ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique))) +
     geom_point() + 
-    facet_grid(. ~ factor(idletime, levels = c(0, 5, 15, Inf))) +
+    facet_grid(. ~ factor(idletime, levels = c(0, 15, Inf))) +
     labs(x = "tail latency probability", y = y_label, title = title, colour = "technique") +
     theme_bw()
 }
@@ -99,21 +94,11 @@ plot_results <- function(df, metric, y_label, title) {
 invoc_data = filter(df_for_invocations, technique != "")
 repl_data = filter(df_for_replicas, technique != "")
 
-invoc_data <- invoc_data %>%
-  mutate(technique = ifelse(technique == "RequestHedgingOpt" & oracle == FALSE, "RequestHedgingOptNoOracle", technique))
-repl_data <- repl_data %>%
-  mutate(technique = ifelse(technique == "RequestHedgingOpt" & oracle == FALSE, "RequestHedgingOptNoOracle", technique))
-
-invoc_data <- invoc_data %>%
-  mutate(technique = ifelse(technique == "GCI" & oracle == FALSE, "GCINoOracle", technique))
-repl_data <- repl_data %>%
-  mutate(technique = ifelse(technique == "GCI" & oracle == FALSE, "GCINoOracle", technique))
-
-
 plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p90, "response time (ms)", "90th of invocations' response time for each idletime")
 plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
 plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p999, "response time (ms)", "999th of invocations' response time for each idletime")
+plot_results(invoc_data, invoc_data$p9999, "response time (ms)", "9999th of invocations' response time for each idletime")
 
 plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
 plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")

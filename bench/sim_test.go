@@ -13,8 +13,7 @@ var forwardLatency = []int{1}
 
 func BenchmarkSimulator(b *testing.B) {
 	technique := []string{"GCI"}
-	hasOracle := []string{"false"}
 	percentileThreshould := []string{"p99"}
 	replicaIdleTime := []int{-1}
-	runner.Sim(tracePath, outputPath, technique, hasOracle, percentileThreshould, replicaIdleTime, forwardLatency)
+	runner.Sim(tracePath, outputPath, technique, percentileThreshould, replicaIdleTime, forwardLatency)
 }

@@ -16,22 +16,22 @@ func NewSelector(cfg model.Config) *selector {
 	}
 }
 
-func (s *selector) getProvisioner(aid, fid string) *resourceProvisioner {
-	rp := s.provisioners[aid+fid]
+func (s *selector) getProvisioner(i *model.Invocation) *resourceProvisioner {
+	rp := s.provisioners[i.GetAppID()+i.GetFuncID()]
 	if rp == nil {
-		rp = s.newProvisioner(aid, fid)
+		rp = s.newProvisioner(i.GetAppID(), i.GetFuncID(), i.GetMU(), i.GetSigma())
 	}
 	return rp
 }
 
-func (s *selector) newProvisioner(aid, fid string) *resourceProvisioner {
-	rp := newResourceProvisioner(aid, fid, s.cfg)
+func (s *selector) newProvisioner(aid, fid string, mu, sigma float64) *resourceProvisioner {
+	rp := newResourceProvisioner(aid, fid, s.cfg, mu, sigma)
 	s.provisioners[aid+fid] = rp
 	return rp
 }
 
 func (s *selector) forward(i *model.Invocation) {
-	s.getProvisioner(i.GetAppID(), i.GetFuncID()).forward(i)
+	s.getProvisioner(i).forward(i)
 }
 
 func (s *selector) terminate() {

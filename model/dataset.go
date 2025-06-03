@@ -12,11 +12,11 @@ type Dataset struct {
 	coldstart   float64
 }
 
-func NewDataSet(rows [][]string, tlProb string, hasOracle bool) (*Dataset, error) {
+func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
 	invocs := make([]Invocation, len(rows))
 	tailLatencyCount := 0
 	for id, row := range rows {
-		entry, err := ToTraceEntry(row, tlProb, hasOracle)
+		entry, err := ToTraceEntry(row, tlProb)
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +59,7 @@ func (i *Dataset) GetSize() int {
 
 func (i *Dataset) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses", "tl_threshold_accuracy", "tl_threshold", "p90", "p95", "p99", "p100"}
+	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "tl_threshold", "shedTimes", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses"}
 	res = append(res, header)
 	for _, inv := range i.invocations {
 		res = append(res, inv.GetOutPut())

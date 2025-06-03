@@ -18,7 +18,7 @@ type resourceProvisioner struct {
 	technique         *technique
 }
 
-func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string, cfg model.Config, mu, sigma float64) *resourceProvisioner {
 	rp := &resourceProvisioner{
 		Runner:   &godes.Runner{},
 		appID:    aid,
@@ -27,7 +27,7 @@ func newResourceProvisioner(aid, fid string, cfg model.Config) *resourceProvisio
 		replicas: make([]*replica, 0),
 		cfg:      cfg,
 	}
-	rp.technique = newTechnique(rp, cfg.Technique)
+	rp.technique = newTechnique(rp, cfg.Technique, mu, sigma)
 	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
 
 	return rp
@@ -49,6 +49,9 @@ func (rp *resourceProvisioner) setAvailable(r *replica) {
 func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	for rp.availableReplicas.Len() > 0 {
 		r := rp.availableReplicas.Get().(*replica)
+		if r.terminatedCond.GetState() {
+			continue
+		}
 		if rp.cfg.Idletime < 0 || rp.cfg.Idletime > godes.GetSystemTime()-r.lastWorkTS {
 			return r
 		}

@@ -65,15 +65,14 @@ func (r *replica) Run() {
 
 			forwardLatency := r.cfg.ForwardLatency
 			godes.Advance(forwardLatency)
-			i.UpdateHopResponse(forwardLatency)
-			i.UpdateHops(r.replicaID)
+			i.UpdateResponse(forwardLatency, r.replicaID)
 
 			dur := i.GetDuration()
 			if r.reqsProcessed == 0 {
 				// first Req of this replica
-				i.SetDuration(i.GetP100())
+				i.SetDuration(i.GetColdStart())
 				i.SetAsColdStart()
-				dur = i.GetP100()
+				dur = i.GetColdStart()
 			}
 
 			if i.IsTailLatency() {
@@ -81,45 +80,63 @@ func (r *replica) Run() {
 				tailLatency := i.GetDuration() - tailLatencyThreshold
 				switch r.cfg.Technique {
 				case "GCI":
-					r.rp.warnReqLatency(i)
-					godes.Advance(tailLatencyThreshold)
-					r.busyTime += tailLatencyThreshold
-					r.lastWorkTS = godes.GetSystemTime()
-					r.isBusy.Set(false)
-					r.rp.setAvailable(r)
-					continue
+					if !i.IsColdStart() {
+						r.rp.warnReqLatency(i)
+						godes.Advance(tailLatencyThreshold)
+						r.busyTime += tailLatencyThreshold
+						r.lastWorkTS = godes.GetSystemTime()
+
+						if r.terminatedCond.GetState() {
+							r.setUptimeStats()
+							break
+						}
+
+						r.isBusy.Set(false)
+						r.rp.setAvailable(r)
+						continue
+					}
 
 				case "RequestHedgingOpt":
-					godes.Advance(tailLatencyThreshold)
-					r.busyTime += tailLatencyThreshold
-					dur = tailLatency
-					r.rp.warnReqLatency(i)
+					if !i.IsCopy() {
+						godes.Advance(tailLatencyThreshold)
+						i.UpdateResponse(tailLatencyThreshold, r.replicaID)
+
+						r.busyTime += tailLatencyThreshold
+						dur = tailLatency
+						r.rp.warnReqLatency(i)
+					}
 				}
 			}
 
 			godes.Advance(dur)
-			r.busyTime += dur
+			i.UpdateResponse(dur, r.replicaID)
 
+			r.busyTime += dur
 			r.lastWorkTS = godes.GetSystemTime()
 			i.AddProcessedTs(r.lastWorkTS)
-			i.UpdateHopResponse(i.GetDuration())
+
 			r.rp.response(i)
 			r.reqsProcessed += 1
 		}
+
 		if r.arrivalQueue.Len() == 0 {
 			r.arrivalCond.Set(false)
 			if r.terminatedCond.GetState() {
-				r.shutdownTS = godes.GetSystemTime()
-				if r.cfg.Idletime >= 0 {
-					r.shutdownTS = math.Min(r.shutdownTS, r.lastWorkTS+r.cfg.Idletime)
-				}
-				r.upTime = r.shutdownTS - r.startTS
+				r.setUptimeStats()
 				break
 			}
 			r.isBusy.Set(false)
 			r.rp.setAvailable(r)
 		}
 	}
+}
+
+func (r *replica) setUptimeStats() {
+	r.shutdownTS = godes.GetSystemTime()
+	if r.cfg.Idletime >= 0 {
+		r.shutdownTS = math.Min(r.shutdownTS, r.lastWorkTS+r.cfg.Idletime)
+	}
+	r.upTime = r.shutdownTS - r.startTS
 }
 
 func (r *replica) terminate() {

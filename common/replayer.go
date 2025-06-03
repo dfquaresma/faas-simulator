@@ -33,7 +33,6 @@ func (re *replayer) Run() {
 	start := time.Now()
 	fmt.Println("Starting Replayer...")
 	godes.Run()
-	previousTs := 0.0
 
 	bar := progressbar.NewOptions(re.dataset.GetSize(),
 		progressbar.OptionSetWriter(ansi.NewAnsiStdout()), //you should install "github.com/k0kubun/go-ansi"
@@ -51,6 +50,7 @@ func (re *replayer) Run() {
 
 	progress := 0
 	barjump := 1000
+	previousTs := 0.0
 	for i := re.dataset.Next(); i != nil; i = re.dataset.Next() {
 		currStartTs := i.GetStartTS()
 		godes.Advance(currStartTs - previousTs)
@@ -70,5 +70,5 @@ func (re *replayer) Run() {
 }
 
 func (re *replayer) GetOutPut() []string {
-	return []string{re.id, re.elapsedTime.String()}
+	return []string{re.elapsedTime.String(), re.id}
 }

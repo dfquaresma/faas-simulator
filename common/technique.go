@@ -15,26 +15,25 @@ type technique struct {
 	rp        *resourceProvisioner
 	iIdAidFid map[string]*model.Invocation
 	config    string
-	seed      rand.Source
+	ln        distuv.LogNormal
 }
 
-func newTechnique(rp *resourceProvisioner, t string) *technique {
+func newTechnique(rp *resourceProvisioner, t string, mu, sigma float64) *technique {
 	return &technique{
 		Runner:    &godes.Runner{},
 		rp:        rp,
 		iIdAidFid: make(map[string]*model.Invocation),
 		config:    t,
-		seed:      rand.NewSource(uint64(time.Now().Nanosecond())),
+		ln: distuv.LogNormal{
+			Mu:    mu,
+			Sigma: sigma,
+			Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
+		},
 	}
 }
 
 func (t *technique) newLatency(mu, sigma float64) float64 {
-	ln := distuv.LogNormal{
-		Mu:    mu,
-		Sigma: sigma,
-		Src:   t.seed,
-	}
-	return ln.Rand()
+	return t.ln.Rand()
 }
 
 func (t *technique) forward(i *model.Invocation) {
@@ -59,7 +58,6 @@ func (t *technique) processWarning(i *model.Invocation) {
 		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
 			iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
-			iCopy.ResetResponseTime()
 			t.rp.getAvailableReplica().process(iCopy)
 		}
 	}
@@ -68,12 +66,14 @@ func (t *technique) processWarning(i *model.Invocation) {
 func (t *technique) processResponse(i *model.Invocation) {
 	if i.IsCopy() {
 		iRef := t.iIdAidFid[i.GetID()]
-		iRef.UpdateRhInvocationMetadata(
-			i.GetForwardedTs(),
-			i.GetProcessedTs(),
-			i.GetResponseTime(),
-			i.GetHops(),
-			i.GetHopResponses(),
-		)
+		if i.GetResponseTime() < iRef.GetResponseTime() {
+			iRef.UpdateRhInvocationMetadata(
+				i.GetForwardedTs(),
+				i.GetResponseTime(),
+				i.GetProcessedTs(),
+				i.GetHopResponses(),
+				i.GetHops(),
+			)
+		}
 	}
 }

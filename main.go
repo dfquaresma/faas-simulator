@@ -19,11 +19,10 @@ func main() {
 	outputPath := viper.GetString("outputPath")
 
 	techniques := viper.GetStringSlice("resourceProvisioner.technique")
-	hasOracle := viper.GetStringSlice("resourceProvisioner.hasOracle")
 	tailLatencyProbs := viper.GetStringSlice("resourceProvisioner.tailLatencyProb")
 
 	idletimes := viper.GetIntSlice("resourceProvisioner.idletime")
 	forwardLatencies := viper.GetIntSlice("resourceProvisioner.forwardLatency")
 
-	runner.Sim(tracePath, outputPath, techniques, hasOracle, tailLatencyProbs, idletimes, forwardLatencies)
+	runner.Sim(tracePath, outputPath, techniques, tailLatencyProbs, idletimes, forwardLatencies)
 }

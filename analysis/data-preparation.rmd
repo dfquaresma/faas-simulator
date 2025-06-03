@@ -12,16 +12,17 @@ library(ggplot2)
 # Function to calculate percentiles for a vector
 calculate_percentiles <- function(x) {
   if (length(x) <= 1) {
-    return(c(p50 = x[1], p90 = x[1], p95 = x[1], p99 = x[1], p100 = x[1]))
+    return(c(p50 = x[1], p95 = x[1], p99 = x[1], p999 = x[1], p9999 = x[1], p100 = x[1]))
   }
   
   p50 <- quantile(x, probs = 0.5)
-  p90 <- quantile(x, probs = 0.90)
   p95 <- quantile(x, probs = 0.95)
   p99 <- quantile(x, probs = 0.99)
+  p999 <- quantile(x, probs = 0.999)
+  p9999 <- quantile(x, probs = 0.9999)
   p100 <- quantile(x, probs = 1)
 
-  return(c(p50 = p50, p90 = p90, p95 = p95, p99 = p99, p100 = p100))
+  return(c(p50 = p50, p95 = p95, p99 = p99, p999 = p999, p9999 = p9999, p100 = p100))
 }
 
 add_partials_stats <- function(df) {
@@ -39,9 +40,10 @@ add_partials_stats <- function(df) {
       result$partials_sigma[i] <- 0
 
       result$partials_p50[i] <- df$duration[1]
-      result$partials_p90[i] <- df$duration[1]
       result$partials_p95[i] <- df$duration[1]
       result$partials_p99[i] <- df$duration[1]
+      result$partials_p999[i] <- df$duration[1]
+      result$partials_p9999[i] <- df$duration[1]
       result$partials_p100[i] <- df$duration[1]
     } else {
       result$partials_sigma[i] <- sd(log_subset)
@@ -50,9 +52,10 @@ add_partials_stats <- function(df) {
       percentiles <- calculate_percentiles(subset_data)
       # Store the percentiles in the result dataframe
       result$partials_p50[i] <- percentiles["p50.50%"]
-      result$partials_p90[i] <- percentiles["p90.90%"]
       result$partials_p95[i] <- percentiles["p95.95%"]
       result$partials_p99[i] <- percentiles["p99.99%"]
+      result$partials_p999[i] <- percentiles["p999.99.9%"]
+      result$partials_p9999[i] <- percentiles["p9999.99.99%"]
       result$partials_p100[i] <- percentiles["p100.100%"]
     }
 
@@ -63,16 +66,18 @@ add_partials_stats <- function(df) {
 
 process_df <- function(df) {
   p50    <- quantile(df$duration, probs = 0.50)
-  p90    <- quantile(df$duration, probs = 0.90)
   p95    <- quantile(df$duration, probs = 0.95)
   p99    <- quantile(df$duration, probs = 0.99)
+  p999    <- quantile(df$duration, probs = 0.999)
+  p9999    <- quantile(df$duration, probs = 0.9999)
   p100   <- quantile(df$duration, probs = 1)
 
   df$start_timestamp = df$end_timestamp - df$duration
   df$p50   <- p50
-  df$p90   <- p90
   df$p95   <- p95
   df$p99   <- p99
+  df$p999  <- p999
+  df$p9999 <- p9999
   df$p100  <- p100
   
   log_df <- log(df$duration)
@@ -102,8 +107,12 @@ filter_functions <- function(df) {
 ```
 
 ```{r}
+start_time <- Sys.time()
 azure_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
-inv2021 = read.csv(paste(azure_path, "/sample-1M.csv", sep=""), header = TRUE)
+#file_name = "sample-100k"
+file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
+
+inv2021 = read.csv(paste(azure_path, file_name, ".csv", sep=""), header = TRUE)
 
 # Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
@@ -113,37 +122,44 @@ inv2021_split_nonull <- inv2021_split[!sapply(inv2021_split, is.null)]
 inv2021_split_processed <- lapply(inv2021_split_nonull, process_df)
 
 # apply add_percentile_partials to inv2021_split_nonull dataframe
-inv2021_split_final <- lapply(inv2021_split_processed, add_partials_stats)
+# inv2021_split_final <- lapply(inv2021_split_processed, add_partials_stats)
 
 # Merge data  
-inv2021_merged = do.call(rbind, inv2021_split_final)
+inv2021_merged = do.call(rbind, inv2021_split_processed)
 inv2021_merged = data.frame(
   func = inv2021_merged$func,
   duration = inv2021_merged$duration,
   start_timestamp = inv2021_merged$start_timestamp,
   app = inv2021_merged$app,
   end_timestamp = inv2021_merged$end_timestamp,
+
   mu = inv2021_merged$mu,
   sigma = inv2021_merged$sigma,
   p50 = inv2021_merged$p50,
-  p90 = inv2021_merged$p90,
   p95 = inv2021_merged$p95,
   p99 = inv2021_merged$p99,
-  p100 = inv2021_merged$p100,
-  partials_mu = inv2021_merged$mu,
-  partials_sigma = inv2021_merged$sigma,
-  partials_p50 = inv2021_merged$partials_p50,
-  partials_p90 = inv2021_merged$partials_p90,
-  partials_p95 = inv2021_merged$partials_p95,
-  partials_p99 = inv2021_merged$partials_p99,
-  partials_p100 = inv2021_merged$partials_p100
-  #is_tail_latency = inv2021_merged$is_tail_latency
+  p999 = inv2021_merged$p999,
+  p9999 = inv2021_merged$p9999,
+  p100 = inv2021_merged$p100
+
+#  partials_mu = inv2021_merged$mu,
+#  partials_sigma = inv2021_merged$sigma,
+#  partials_p50 = inv2021_merged$partials_p50,
+#  partials_p95 = inv2021_merged$partials_p95,
+#  partials_p99 = inv2021_merged$partials_p99,
+#  partials_p999 = inv2021_merged$partials_p999,
+#  partials_p9999 = inv2021_merged$partials_p9999,
+#  partials_p100 = inv2021_merged$partials_p100
 )
 # sort by start_timestamp
-inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, mu, sigma, p50, p90, p95, p99, p100, partials_mu, partials_sigma, partials_p50, partials_p90, partials_p95, partials_p99, partials_p100) #,is_tail_latency)
+inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], app, func, start_timestamp, duration, end_timestamp, mu, sigma, p50, p95, p99, p999, p9999, p100)
+#, partials_mu, partials_sigma, partials_p50,partials_p95, partials_p99, partials_p999, partials_p9999, partials_p100)
 
 # save processed data
-write.csv(inv2021_merged, file = paste(azure_path, "/sample-1M-processed.csv", sep=""), row.names = FALSE)
+write.csv(inv2021_merged, file = paste(azure_path, file_name, "-processed.csv", sep=""), row.names = FALSE)
+
+end_time <- Sys.time()
+duration <- as.numeric(end_time - start_time, units = "secs")
 ```
 
 ```{r}

@@ -1,11 +1,10 @@
 {
-  "tracePath": "./azure/sample-1M-processed.csv",
+  "tracePath": "./azure/sample-100k-processed.csv",
   "outputPath": "./results_sample/",
   "resourceProvisioner": {
     "forwardLatency": [1],
     "idletime": [-1, 0, 15],
-    "tailLatencyProb": ["p99", "p95", "p90"],
-    "technique": ["GCI", "Vanilla", "RequestHedgingDefault", "RequestHedgingOpt"],
-    "hasOracle": ["true", "false"]
+    "tailLatencyProb": ["p95", "p99", "p999", "p9999"],
+    "technique": ["GCI", "Vanilla", "RequestHedgingDefault", "RequestHedgingOpt"]
   }
 }

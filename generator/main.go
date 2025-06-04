@@ -113,7 +113,7 @@ func (d *distribution) nextValue() float64 {
 	switch d.dist {
 	case "constant_with_tail":
 		latency := d.latency
-		if d.rng.Float64() > 1-d.prob {
+		if d.rng.Float64() >= 1-d.prob {
 			latency = d.tail_latency
 		}
 		return latency

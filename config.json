@@ -1,6 +1,6 @@
 {
-  "tracePath": "./azure/sample-100k-processed.csv",
-  "outputPath": "./results_sample/",
+  "tracePath": "./generator/constante-constante_with_tail-processed.csv",
+  "outputPath": "./results_generated/",
   "resourceProvisioner": {
     "forwardLatency": [1],
     "idletime": [-1, 0, 15],

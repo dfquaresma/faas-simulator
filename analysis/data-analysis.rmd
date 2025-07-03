@@ -9,7 +9,7 @@ output: pdf_document
 library(dplyr)
 library(ggplot2)
 
-result_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_sample"
+result_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generated"
 techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
 probs      <- c('tlprobp95', 'tlprobp99', 'tlprobp999', 'tlprobp9999')
 idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
@@ -82,15 +82,21 @@ df_for_replicas <- parse_values(df_for_replicas)
 
 plot_results <- function(df, metric, y_label, title) {
   df$idletime_f <- factor(df$idletime, levels = c(0, 15, Inf))
-  ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique))) +
-    geom_point() + 
+  ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique), shape=as.factor(technique))) +
+    geom_jitter(width = 0.015, height = 0, alpha = 0.8, size = 2.5, stroke = 1) +
     facet_grid(. ~ factor(idletime, levels = c(0, 15, Inf))) +
-    labs(x = "tail latency probability", y = y_label, title = title, colour = "technique") +
-    theme_bw()
+    labs(x = "tail latency probability", y = y_label, title = title, colour = "technique", shape = "technique") +
+    scale_shape_manual(values = c(1, 23, 24, 15)) +
+    scale_color_manual(values = c("red", "purple", "blue", "limegreen")) +  # cores mais distintas
+    theme_bw() +
+    theme(
+      legend.position = "bottom",
+      strip.text = element_text(size = 12),
+      axis.text = element_text(size = 10)
+    )
 }
-```
 
-```{r}
+
 invoc_data = filter(df_for_invocations, technique != "")
 repl_data = filter(df_for_replicas, technique != "")
 
@@ -104,5 +110,153 @@ plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Tot
 plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
 plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
 plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
+```
+
+# LOAD DATA FOR ECDF & BOXPLOT
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+repo_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/"
+results_path = "results_azure/"
+scenario = "_idletimeINF_tlprobp95-invocations.csv"
+
+technique = "GCI"
+gci = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+gci <- select(transform(gci, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+gci$responseTimeUseful <- ifelse(gci$minResponseTime != 0, gci$minResponseTime, gci$responseTime)
+
+technique = "RequestHedgingDefault"
+rh = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+rh <- select(transform(rh, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+rh$responseTimeUseful <- ifelse(rh$minResponseTime != 0, rh$minResponseTime, rh$responseTime)
+
+technique = "RequestHedgingOpt"
+rhd = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+rhd <- select(transform(rhd, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+rhd$responseTimeUseful <- ifelse(rhd$minResponseTime != 0, rhd$minResponseTime, rhd$responseTime)
+
+technique = "Vanilla"
+vanilla = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+vanilla <- select(transform(vanilla, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+vanilla$responseTimeUseful <- ifelse(vanilla$minResponseTime != 0, vanilla$minResponseTime, vanilla$responseTime)
+rm(technique)
+```
+
+
+# ECDF VISUAL TEST
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+require(quantileCI)
+
+ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "dotted", "dotdash", "dashed"), cols=c(15, 195, 150), img_name=FALSE) {
+    vanilla.color <- "limegreen"
+    vanilla.p95 <- quantile(data$vanilla, 0.95)
+    vanilla.p999 <- quantile(data$vanilla, 0.999)
+    vanilla.p50 <- quantile(data$vanilla, 0.5)
+
+    rh.color <- "purple"
+    rh.p95 <- quantile(data$rh, 0.95)
+    rh.p999 <- quantile(data$rh, 0.999)
+    rh.p50 <- quantile(data$rh, 0.5)
+    
+    rhd.color <- "blue"
+    rhd.p95 <- quantile(data$rhd, 0.95)
+    rhd.p999 <- quantile(data$rhd, 0.999)
+    rhd.p50 <- quantile(data$rhd, 0.5)
+
+    gci.color <- "red"
+    gci.p95 <- quantile(data$gci, 0.95)
+    gci.p999 <- quantile(data$gci, 0.999)
+    gci.p50 <- quantile(data$gci, 0.5)
+
+    annotate_y = 0.9
+    size = 0.5
+    alpha = 0.8
+    angle = 90
+    
+    p <- data[, colSums(is.na(data)) != nrow(data)] %>%
+    pivot_longer(everything()) %>%
+    group_by(name) %>%
+    arrange(value, by_group = TRUE) %>%
+    mutate(ecdf = seq(1/n(), 1 - 1/n(), length.out = n())) %>%
+    ggplot(aes(x = value, y = ecdf, colour=name, linetype=name)) +
+    xlim(xinf, xsup) +
+    ylim(yinf, ysup) +
+    geom_step() +
+    theme(text=element_text(size=12), plot.title = element_text(hjust = 0.5))+
+    theme(legend.text=element_text(size=12)) +
+    theme(legend.position="top") +
+
+    scale_color_manual(values=c("vanilla"="limegreen", "rh"="purple", "rhd"="blue", "gci"="red")) +
+    scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
+    scale_linetype_manual(values=c("vanilla"="solid", "rh"="dotted", "rhd"="dotdash", "gci"="dashed")) +
+    labs(x="Response Time (ms)",y="ECDF", color="scenario", linetype="scenario") +
+    ggtitle(title) +
+
+    annotate(geom="text", x=vanilla.p50, y=annotate_y, label="Median", angle=angle, color=vanilla.color) +
+    geom_vline(xintercept=vanilla.p50, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
+    annotate(geom="text", x=vanilla.p95, y=annotate_y, label="95th", angle=angle, color=vanilla.color) +
+    geom_vline(xintercept=vanilla.p95, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
+    annotate(geom="text", x=vanilla.p999, y=annotate_y, label="99.9th", angle=angle, color=vanilla.color) +
+    geom_vline(xintercept=vanilla.p999, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
+
+    annotate(geom="text", x=rh.p50, y=annotate_y, label="Median", angle=angle, color=rh.color) +
+    geom_vline(xintercept=rh.p50, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
+    annotate(geom="text", x=rh.p95, y=annotate_y, label="95th", angle=angle, color=rh.color) +
+    geom_vline(xintercept=rh.p95, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
+    annotate(geom="text", x=rh.p999, y=annotate_y, label="99.9th", angle=angle, color=rh.color) +
+    geom_vline(xintercept=rh.p999, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
+
+    annotate(geom="text", x=rhd.p50, y=annotate_y, label="Median", angle=angle, color=rhd.color) +
+    geom_vline(xintercept=rhd.p50, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
+    annotate(geom="text", x=rhd.p95, y=annotate_y, label="95th", angle=angle, color=rhd.color) +
+    geom_vline(xintercept=rhd.p95, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
+    annotate(geom="text", x=rhd.p999, y=annotate_y, label="99.9th", angle=angle, color=rhd.color) +
+    geom_vline(xintercept=rhd.p999, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
+
+    annotate(geom="text", x=gci.p50, y=annotate_y, label="Median", angle=angle, color=gci.color) +
+    geom_vline(xintercept=gci.p50, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
+    annotate(geom="text", x=gci.p95, y=annotate_y, label="95th", angle=angle, color=gci.color) +
+    geom_vline(xintercept=gci.p95, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
+    annotate(geom="text", x=gci.p999, y=annotate_y, label="99.9th", angle=angle, color=gci.color) +
+    geom_vline(xintercept=gci.p999, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
+
+    theme_bw()
+        
+    if (img_name != FALSE) {
+      ggsave(img_name, width=10, height=5)
+    }
+    print(p)
+}
+
+ecdf_plot("Comparison of ECDF Curves of Experiments", data.frame(
+  vanilla = vanilla$responseTimeUseful,
+  rh = rh$responseTimeUseful,
+  rhd = rhd$responseTimeUseful,
+  gci = gci$responseTimeUseful
+), 0, 25, 0, 1, img_name="results-ecdf.png")
+
+```
+
+# BOXPLOT VISUAL TEST
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+boxplot_plot <- function(title, df_a, df_b, df_c, yrange, outliershape = NA) {
+  return(ggplot(rbind(df_a, df_b, df_c), aes(x=scenario, y=responseTime, fill=scenario)) +
+  geom_boxplot(outlier.shape = outliershape) +
+  scale_fill_manual(values=hcl(c(15, 195, 150), 100, 65, alpha=c(0.5, 1))) +
+  coord_cartesian(ylim=yrange) + 
+  theme(text=element_text(size=15)) +
+  theme(legend.text=element_text(size=15)) +
+  labs(x = "scenario", y = "latency (ms)") +
+  theme(axis.ticks.x = element_blank(), axis.text.x = element_blank(), axis.title.x = element_blank(), plot.title = element_text(hjust = 0.5)) +
+  theme_bw() +
+  ggtitle(title)
+  )
+}
+
+df_gci_to_boxplot = data.frame(scenario = "gci", responseTime = gci$responseTimeUseful)
+df_rhd_to_boxplot = data.frame(scenario = " rhd", responseTime = rhd$responseTimeUseful)
+df_van_to_boxplot = data.frame(scenario = "vanilla", responseTime = vanilla$responseTimeUseful)
+boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rhd_to_boxplot, df_van_to_boxplot, c(0, 5))
 ```
 

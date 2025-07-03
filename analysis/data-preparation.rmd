@@ -108,11 +108,13 @@ filter_functions <- function(df) {
 
 ```{r}
 start_time <- Sys.time()
-azure_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
+#data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
+data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/generator/"
 #file_name = "sample-100k"
-file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
+#file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
+file_name = "constante-constante_with_tail"
 
-inv2021 = read.csv(paste(azure_path, file_name, ".csv", sep=""), header = TRUE)
+inv2021 = read.csv(paste(data_path, file_name, ".csv", sep=""), header = TRUE)
 
 # Split the inv2021 dataframe by values in func and apply filter_functions to each sub-dataframe
 inv2021_split <- lapply(split(inv2021, inv2021$func), filter_functions)
@@ -156,7 +158,7 @@ inv2021_merged = select(inv2021_merged[order(inv2021_merged$start_timestamp),], 
 #, partials_mu, partials_sigma, partials_p50,partials_p95, partials_p99, partials_p999, partials_p9999, partials_p100)
 
 # save processed data
-write.csv(inv2021_merged, file = paste(azure_path, file_name, "-processed.csv", sep=""), row.names = FALSE)
+write.csv(inv2021_merged, file = paste(data_path, file_name, "-processed.csv", sep=""), row.names = FALSE)
 
 end_time <- Sys.time()
 duration <- as.numeric(end_time - start_time, units = "secs")

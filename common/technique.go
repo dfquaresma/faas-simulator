@@ -33,14 +33,17 @@ func newTechnique(rp *resourceProvisioner, t string, mu, sigma float64) *techniq
 }
 
 func (t *technique) newLatency(mu, sigma float64) float64 {
+	// TODO(): should generate new latency as allInvocsForAppIDFuncID(AppID, FuncID).selectRandomValueFromList()
 	return t.ln.Rand()
 }
 
 func (t *technique) forward(i *model.Invocation) {
 	t.iIdAidFid[i.GetID()] = i
+	t.rp.getAvailableReplica().process(i)
 	if t.config == "RequestHedgingDefault" {
 		iCopy := model.CopyInvocation(i)
 		iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+		i.SetForwardedTs(godes.GetSystemTime())
 		t.rp.getAvailableReplica().process(iCopy)
 	}
 }
@@ -49,7 +52,7 @@ func (t *technique) processWarning(i *model.Invocation) {
 	switch t.config {
 	case "GCI":
 		if !i.IsColdStart() {
-			i.IncrementShedTimes()
+			i.IncrementFowardTimes()
 			i.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
 			t.rp.getAvailableReplica().process(i)
 		}
@@ -58,6 +61,7 @@ func (t *technique) processWarning(i *model.Invocation) {
 		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
 			iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+			iCopy.SetForwardedTs(godes.GetSystemTime())
 			t.rp.getAvailableReplica().process(iCopy)
 		}
 	}
@@ -66,14 +70,6 @@ func (t *technique) processWarning(i *model.Invocation) {
 func (t *technique) processResponse(i *model.Invocation) {
 	if i.IsCopy() {
 		iRef := t.iIdAidFid[i.GetID()]
-		if i.GetResponseTime() < iRef.GetResponseTime() {
-			iRef.UpdateRhInvocationMetadata(
-				i.GetForwardedTs(),
-				i.GetResponseTime(),
-				i.GetProcessedTs(),
-				i.GetHopResponses(),
-				i.GetHops(),
-			)
-		}
+		iRef.UpdateTechniqueResponseTime(i.GetResponseTime())
 	}
 }

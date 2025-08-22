@@ -34,7 +34,6 @@ func newResourceProvisioner(aid, fid string, cfg model.Config, mu, sigma float64
 }
 
 func (rp *resourceProvisioner) forward(i *model.Invocation) {
-	rp.getAvailableReplica().process(i)
 	rp.technique.forward(i)
 }
 

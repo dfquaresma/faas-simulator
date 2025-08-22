@@ -12,11 +12,12 @@ type Invocation struct {
 }
 
 type traceEntry struct {
-	appID                  string
-	funcID                 string
-	duration               float64
-	endTS                  float64
-	startTS                float64
+	appID    string
+	funcID   string
+	duration float64
+	endTS    float64
+	startTS  float64
+
 	coldStart              float64
 	mu                     float64
 	sigma                  float64
@@ -26,22 +27,17 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	datasetId    string
-	forwardedTs  float64
-	processedTs  []float64
-	responseTime float64
-	hopRefs      []string
-	hopResponses []float64
-
-	rh_forwardedTs  float64
-	rh_processedTs  []float64
-	rh_responseTime float64
-	rh_hops         []string
-	rh_hopResponses []float64
+	invocationId          string
+	forwardedTs           []float64
+	processedTs           []float64
+	responseTime          float64
+	techniqueResponseTime float64
+	hopIds                []string
+	hopDelays             []float64
 
 	is_copy       bool
 	is_cold_start bool
-	shed_times    float64
+	fowardTimes   float64
 }
 
 type percentile struct {
@@ -57,8 +53,8 @@ func NewInvocation(id string, te traceEntry) *Invocation {
 	return &Invocation{
 		te: te,
 		im: invocationMetadata{
-			datasetId: id,
-			is_copy:   false,
+			invocationId: id,
+			is_copy:      false,
 		},
 	}
 }
@@ -75,12 +71,12 @@ func CopyInvocation(i *Invocation) *Invocation {
 			tail_latency_threshold: i.te.tail_latency_threshold,
 		},
 		im: invocationMetadata{
-			datasetId:    i.im.datasetId,
+			invocationId: i.im.invocationId,
 			forwardedTs:  i.im.forwardedTs,
 			processedTs:  i.im.processedTs,
 			responseTime: i.im.responseTime,
-			hopRefs:      []string{},
-			hopResponses: []float64{},
+			hopIds:       []string{},
+			hopDelays:    []float64{},
 			is_copy:      true,
 		},
 	}
@@ -185,21 +181,13 @@ func (i *Invocation) AddProcessedTs(pt float64) {
 }
 
 func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
-	i.im.hopRefs = append(i.im.hopRefs, replicaID)
-	i.im.hopResponses = append(i.im.hopResponses, hopResponse)
+	i.im.hopIds = append(i.im.hopIds, replicaID)
+	i.im.hopDelays = append(i.im.hopDelays, hopResponse)
 	i.im.responseTime += hopResponse
 }
 
-func (i *Invocation) UpdateRhInvocationMetadata(rh_forwardedTs, rh_responseTime float64, rh_processedTs, rh_hopResponses []float64, rh_hops []string) {
-	i.im.rh_forwardedTs = rh_forwardedTs
-	i.im.rh_processedTs = rh_processedTs
-	i.im.rh_responseTime = rh_responseTime
-	i.im.rh_hops = rh_hops
-	i.im.rh_hopResponses = rh_hopResponses
-}
-
 func (i *Invocation) hasHops() bool {
-	return len(i.im.hopRefs) != 0 && len(i.im.hopResponses) != 0
+	return len(i.im.hopIds) != 0 && len(i.im.hopDelays) != 0
 }
 
 func (i *Invocation) IsTailLatency() bool {
@@ -218,20 +206,16 @@ func (i *Invocation) SetAsColdStart() {
 	i.im.is_cold_start = true
 }
 
-func (i *Invocation) IncrementShedTimes() {
-	i.im.shed_times = i.im.shed_times + 1
+func (i *Invocation) IncrementFowardTimes() {
+	i.im.fowardTimes = i.im.fowardTimes + 1
 }
 
-func (i *Invocation) GetShedTimes() float64 {
-	return i.im.shed_times
+func (i *Invocation) GetFowardTimes() float64 {
+	return i.im.fowardTimes
 }
 
 func (i *Invocation) GetAppID() string {
 	return i.te.appID
-}
-
-func (i *Invocation) GetForwardedTs() float64 {
-	return i.im.forwardedTs
 }
 
 func (i *Invocation) GetProcessedTs() []float64 {
@@ -243,11 +227,7 @@ func (i *Invocation) GetResponseTime() float64 {
 }
 
 func (i *Invocation) GetHops() []string {
-	return i.im.hopRefs
-}
-
-func (i *Invocation) GetHopResponses() []float64 {
-	return i.im.hopResponses
+	return i.im.hopIds
 }
 
 func (i *Invocation) GetFuncID() string {
@@ -270,30 +250,6 @@ func (i *Invocation) GetSigma() float64 {
 	return i.te.sigma
 }
 
-func (i *Invocation) GetP50() float64 {
-	return i.te.percentile.p50
-}
-
-func (i *Invocation) GetP95() float64 {
-	return i.te.percentile.p95
-}
-
-func (i *Invocation) GetP99() float64 {
-	return i.te.percentile.p99
-}
-
-func (i *Invocation) GetP999() float64 {
-	return i.te.percentile.p999
-}
-
-func (i *Invocation) GetP9999() float64 {
-	return i.te.percentile.p9999
-}
-
-func (i *Invocation) GetP100() float64 {
-	return i.te.percentile.p100
-}
-
 func (i *Invocation) GetColdStart() float64 {
 	return i.te.coldStart
 }
@@ -307,37 +263,29 @@ func (i *Invocation) GetID() string {
 }
 
 func (i *Invocation) getDatasetID() string {
-	return i.im.datasetId
-}
-
-func (i *Invocation) GetLastProcessedTs() float64 {
-	return i.im.processedTs[len(i.im.processedTs)-1]
+	return i.im.invocationId
 }
 
 func (i *Invocation) GetLastHop() string {
-	return i.im.hopRefs[len(i.im.hopRefs)-1]
+	return i.im.hopIds[len(i.im.hopIds)-1]
 }
 
 func (i *Invocation) GetLastHopResponse() float64 {
-	return i.im.hopResponses[len(i.im.hopResponses)-1]
+	return i.im.hopDelays[len(i.im.hopDelays)-1]
 }
 
 func (i *Invocation) GetOutPut() []string {
-	hopResponsesStr := make([]string, len(i.im.hopResponses))
-	for i, f := range i.im.hopResponses {
-		hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
-	}
-	rh_hopResponsesStr := make([]string, len(i.im.rh_hopResponses))
-	for i, f := range i.im.rh_hopResponses {
-		rh_hopResponsesStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	forwardedTsStr := make([]string, len(i.im.forwardedTs))
+	for i, f := range i.im.forwardedTs {
+		forwardedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 	processedTsStr := make([]string, len(i.im.processedTs))
 	for i, f := range i.im.processedTs {
 		processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
-	rh_processedTsStr := make([]string, len(i.im.rh_processedTs))
-	for i, f := range i.im.rh_processedTs {
-		rh_processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
+	hopDelaysStr := make([]string, len(i.im.hopDelays))
+	for i, f := range i.im.hopDelays {
+		hopDelaysStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
 	}
 
 	return []string{
@@ -346,19 +294,17 @@ func (i *Invocation) GetOutPut() []string {
 		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
 		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
 		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
-		i.im.datasetId,
-		strconv.FormatFloat(i.im.forwardedTs, 'f', -1, 64),
+		i.im.invocationId,
+
+		strings.Join(forwardedTsStr, ";"),
 		strings.Join(processedTsStr, ";"),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
+		strconv.FormatFloat(i.im.techniqueResponseTime, 'f', -1, 64),
+
 		strconv.FormatFloat(i.te.tail_latency_threshold, 'f', -1, 64),
-		strconv.FormatFloat(i.im.shed_times, 'f', -1, 64),
-		strings.Join(i.im.hopRefs, ";"),
-		strings.Join(hopResponsesStr, ";"),
-		strconv.FormatFloat(i.im.rh_forwardedTs, 'f', -1, 64),
-		strings.Join(rh_processedTsStr, ";"),
-		strconv.FormatFloat(i.im.rh_responseTime, 'f', -1, 64),
-		strings.Join(i.im.rh_hops, ";"),
-		strings.Join(rh_hopResponsesStr, ";"),
+		strconv.FormatFloat(i.im.fowardTimes, 'f', -1, 64),
+		strings.Join(i.im.hopIds, ";"),
+		strings.Join(hopDelaysStr, ";"),
 	}
 }
 
@@ -367,5 +313,9 @@ func (i *Invocation) SetDuration(nd float64) {
 }
 
 func (i *Invocation) SetForwardedTs(ft float64) {
-	i.im.forwardedTs = ft
+	i.im.forwardedTs = append(i.im.forwardedTs, ft)
+}
+
+func (i *Invocation) UpdateTechniqueResponseTime(rt float64) {
+	i.im.techniqueResponseTime = rt
 }

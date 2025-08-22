@@ -59,7 +59,10 @@ func (i *Dataset) GetSize() int {
 
 func (i *Dataset) GetOutPut() [][]string {
 	res := [][]string{}
-	header := []string{"appID", "funcID", "duration", "endTS", "startTS", "invocationID", "forwardedTs", "processedTs", "responseTime", "tl_threshold", "shedTimes", "hopsId", "hopResponses", "rHforwardedTs", "rHprocessedTs", "rHresponseTime", "rHhopsId", "rHhopResponses"}
+	header := []string{
+		"appID", "funcID", "duration", "endTS", "startTS", "invocationID",
+		"forwardedTs", "processedTs", "responseTime", "techniqueResponseTime",
+		"tl_threshold", "fowardTimes", "hopsId", "hopDelays"}
 	res = append(res, header)
 	for _, inv := range i.invocations {
 		res = append(res, inv.GetOutPut())

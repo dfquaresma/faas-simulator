@@ -44,15 +44,8 @@ func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config)
 
 func (r *replica) process(i *model.Invocation) {
 	r.arrivalQueue.Place(i)
-	r.arrivalCond.Set(true)
-}
-
-func (r *replica) IsBusy() bool {
-	return r.isBusy.GetState()
-}
-
-func (r *replica) SetBusy() {
 	r.isBusy.Set(true)
+	r.arrivalCond.Set(true)
 }
 
 func (r *replica) Run() {
@@ -60,7 +53,6 @@ func (r *replica) Run() {
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
-			r.isBusy.Set(true)
 			i := r.arrivalQueue.Get().(*model.Invocation)
 
 			forwardLatency := r.cfg.ForwardLatency

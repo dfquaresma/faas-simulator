@@ -12,7 +12,7 @@ library(ggplot2)
 library(tidyr)
 ##require(quantileCI)
 
-load_data <- function(result_path, techs, probs, idletimes) {
+load_data <- function(results_path, techs, probs, idletimes) {
   technique <- c()
   tailLatencyProb <- c()
   idletime <- c()
@@ -25,7 +25,7 @@ load_data <- function(result_path, techs, probs, idletimes) {
     for (p in probs) {
       for (i in idletimes) {
         fileName = paste(paste(t, i, p, sep = "_"), "invocations.csv", sep="-")
-        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+        results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
   
         results_treated <- select(transform(results, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
         results_treated$responseTimeUseful <- ifelse(results_treated$minResponseTime != 0, results_treated$minResponseTime, results_treated$responseTime)
@@ -50,7 +50,7 @@ load_data <- function(result_path, techs, probs, idletimes) {
     for (p in probs) {
       for (i in idletimes) {
         fileName = paste(paste(t, i, p, sep = "_"), "replicas.csv", sep="-")
-        results = read.csv(paste(result_path, t, fileName, sep="/"), header = TRUE)
+        results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
         uptime <- c(uptime, sum(results$upTime))
         busyTime <- c(busyTime, sum(results$busyTime))
         replicasCount <- c(replicasCount, nrow(results))
@@ -188,12 +188,12 @@ boxplot_plot <- function(title, df_a, df_b, df_c, yrange, outliershape = NA) {
 
 ## LOAD GENERAL DATA
 ```{r}
-result_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generated"
+results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generated"
 techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
 probs      <- c('tlprobp95', 'tlprobp99', 'tlprobp999', 'tlprobp9999')
 idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
 
-data_loaded <- load_data(result_path, techs, probs, idletimes)
+data_loaded <- load_data(results_path, techs, probs, idletimes)
 df_for_invocations <- data_loaded$df_for_invocations
 df_for_replicas <- data_loaded$df_for_replicas
 
@@ -210,19 +210,19 @@ repl_data = filter(df_for_replicas, technique != "")
 ```{r}
 scenario = "_idletimeINF_tlprobp95-invocations.csv"
 technique = "GCI"
-gci = read.csv(paste(results_path, technique, "/", technique, scenario, sep=""))
+gci = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
 gci <- select(transform(gci, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
 gci$responseTimeUseful <- ifelse(gci$minResponseTime != 0, gci$minResponseTime, gci$responseTime)
 technique = "RequestHedgingDefault"
-rh = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+rh = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
 rh <- select(transform(rh, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
 rh$responseTimeUseful <- ifelse(rh$minResponseTime != 0, rh$minResponseTime, rh$responseTime)
 technique = "RequestHedgingOpt"
-rhd = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+rhd = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
 rhd <- select(transform(rhd, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
 rhd$responseTimeUseful <- ifelse(rhd$minResponseTime != 0, rhd$minResponseTime, rhd$responseTime)
 technique = "Vanilla"
-vanilla = read.csv(paste(repo_path, results_path, technique, "/", technique, scenario, sep=""))
+vanilla = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
 vanilla <- select(transform(vanilla, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
 vanilla$responseTimeUseful <- ifelse(vanilla$minResponseTime != 0, vanilla$minResponseTime, vanilla$responseTime)
 rm(technique)

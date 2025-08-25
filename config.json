@@ -1,6 +1,6 @@
 {
   "tracePath": "./azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
-  "outputPath": "./results_azul/",
+  "outputPath": "./results_azure/",
   "resourceProvisioner": {
     "forwardLatency": [1],
     "idletime": [-1, 0, 15],

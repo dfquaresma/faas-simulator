@@ -61,7 +61,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	fmt.Printf("SimulationName: %s\n", simulationName)
 	fmt.Printf("OutputPath: %s\n\n", outputPath)
 
-	selector := common.NewSelector(cfg)
+	selector := common.NewSelector(invocations, cfg)
 	replayer := common.NewReplayer(invocations, selector, simulationName, fmt.Sprintf("[cyan][%d/%d][reset] Running simulation...", count, total))
 
 	fmt.Print("Starting simulation...")

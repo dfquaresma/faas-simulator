@@ -18,7 +18,7 @@ type resourceProvisioner struct {
 	technique         *technique
 }
 
-func newResourceProvisioner(aid, fid string, cfg model.Config, mu, sigma float64) *resourceProvisioner {
+func newResourceProvisioner(aid, fid string, cfg model.Config, s *selector) *resourceProvisioner {
 	rp := &resourceProvisioner{
 		Runner:   &godes.Runner{},
 		appID:    aid,
@@ -27,7 +27,7 @@ func newResourceProvisioner(aid, fid string, cfg model.Config, mu, sigma float64
 		replicas: make([]*replica, 0),
 		cfg:      cfg,
 	}
-	rp.technique = newTechnique(rp, cfg.Technique, mu, sigma)
+	rp.technique = newTechnique(rp, cfg.Technique, s)
 	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
 
 	return rp

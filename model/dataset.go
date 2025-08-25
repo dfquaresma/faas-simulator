@@ -9,21 +9,28 @@ type Dataset struct {
 	iLen        int
 	iterator    int
 	invocations []Invocation
+	latencies   map[string][]float64
 	coldstart   float64
 }
 
 func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
 	invocs := make([]Invocation, len(rows))
+	latencies := make(map[string][]float64)
 	tailLatencyCount := 0
 	for id, row := range rows {
 		entry, err := ToTraceEntry(row, tlProb)
 		if err != nil {
 			return nil, err
 		}
-		if entry.duration > entry.tail_latency_threshold {
+		if entry.duration > entry.tlthreshold {
 			tailLatencyCount += 1
 		}
 		invoc := NewInvocation(strconv.Itoa(id), *entry)
+		list, exists := latencies[invoc.GetAppID()+invoc.GetFuncID()]
+		if !exists {
+			list = make([]float64, 0, invoc.GetRows())
+		}
+		latencies[invoc.GetAppID()+invoc.GetFuncID()] = append(list, invoc.GetDuration())
 		invocs[id] = *invoc
 	}
 
@@ -37,34 +44,39 @@ func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
 	return &Dataset{
 		iLen:        len(invocs),
 		invocations: invocs,
+		latencies:   latencies,
 	}, nil
 }
 
-func (i *Dataset) Next() *Invocation {
-	if !i.HasNext() {
+func (d *Dataset) GetLatenciesOf(id string) []float64 {
+	return d.latencies[id]
+}
+
+func (d *Dataset) Next() *Invocation {
+	if !d.HasNext() {
 		return nil
 	}
-	index := i.iterator
-	i.iterator++
-	return &i.invocations[index]
+	index := d.iterator
+	d.iterator++
+	return &d.invocations[index]
 }
 
-func (i *Dataset) HasNext() bool {
-	return i.iterator < i.iLen
+func (d *Dataset) HasNext() bool {
+	return d.iterator < d.iLen
 }
 
-func (i *Dataset) GetSize() int {
-	return len(i.invocations)
+func (d *Dataset) GetSize() int {
+	return len(d.invocations)
 }
 
-func (i *Dataset) GetOutPut() [][]string {
+func (d *Dataset) GetOutPut() [][]string {
 	res := [][]string{}
 	header := []string{
 		"appID", "funcID", "duration", "endTS", "startTS", "invocationID",
 		"forwardedTs", "processedTs", "responseTime", "techniqueResponseTime",
 		"tl_threshold", "fowardTimes", "hopsId", "hopDelays"}
 	res = append(res, header)
-	for _, inv := range i.invocations {
+	for _, inv := range d.invocations {
 		res = append(res, inv.GetOutPut())
 	}
 	return res

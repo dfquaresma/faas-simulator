@@ -6,26 +6,32 @@ import (
 
 type selector struct {
 	provisioners map[string]*resourceProvisioner
+	dataset      *model.Dataset
 	cfg          model.Config
 }
 
-func NewSelector(cfg model.Config) *selector {
+func NewSelector(dataset *model.Dataset, cfg model.Config) *selector {
 	return &selector{
 		provisioners: make(map[string]*resourceProvisioner),
+		dataset:      dataset,
 		cfg:          cfg,
 	}
+}
+
+func (s *selector) getDataSet() *model.Dataset {
+	return s.dataset
 }
 
 func (s *selector) getProvisioner(i *model.Invocation) *resourceProvisioner {
 	rp := s.provisioners[i.GetAppID()+i.GetFuncID()]
 	if rp == nil {
-		rp = s.newProvisioner(i.GetAppID(), i.GetFuncID(), i.GetMU(), i.GetSigma())
+		rp = s.newProvisioner(i.GetAppID(), i.GetFuncID())
 	}
 	return rp
 }
 
-func (s *selector) newProvisioner(aid, fid string, mu, sigma float64) *resourceProvisioner {
-	rp := newResourceProvisioner(aid, fid, s.cfg, mu, sigma)
+func (s *selector) newProvisioner(aid, fid string) *resourceProvisioner {
+	rp := newResourceProvisioner(aid, fid, s.cfg, s)
 	s.provisioners[aid+fid] = rp
 	return rp
 }

@@ -1,10 +1,10 @@
 {
-  "tracePath": "./generator/constante-constante_with_tail-processed.csv",
-  "outputPath": "./results_generated/",
+  "tracePath": "./azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
+  "outputPath": "./results_azul/",
   "resourceProvisioner": {
     "forwardLatency": [1],
     "idletime": [-1, 0, 15],
     "tailLatencyProb": ["p95", "p99", "p999", "p9999"],
-    "technique": ["GCI", "Vanilla", "RequestHedgingDefault", "RequestHedgingOpt"]
+    "technique": ["Vanilla", "RequestHedgingDefault", "RequestHedgingOpt", "GCI"]
   }
 }

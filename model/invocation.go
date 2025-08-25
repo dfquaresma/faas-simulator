@@ -12,18 +12,17 @@ type Invocation struct {
 }
 
 type traceEntry struct {
-	appID    string
-	funcID   string
-	duration float64
-	endTS    float64
-	startTS  float64
+	appID      string
+	funcID     string
+	rows       int64
+	startTS    float64
+	duration   float64
+	endTS      float64
+	percentile percentile
 
-	coldStart              float64
-	mu                     float64
-	sigma                  float64
-	percentile             percentile
-	tlProb                 string
-	tail_latency_threshold float64
+	coldStart   float64
+	tlProb      string
+	tlthreshold float64
 }
 
 type invocationMetadata struct {
@@ -35,9 +34,7 @@ type invocationMetadata struct {
 	hopIds                []string
 	hopDelays             []float64
 
-	is_copy       bool
-	is_cold_start bool
-	fowardTimes   float64
+	srcInvoc *Invocation
 }
 
 type percentile struct {
@@ -54,7 +51,6 @@ func NewInvocation(id string, te traceEntry) *Invocation {
 		te: te,
 		im: invocationMetadata{
 			invocationId: id,
-			is_copy:      false,
 		},
 	}
 }
@@ -62,13 +58,13 @@ func NewInvocation(id string, te traceEntry) *Invocation {
 func CopyInvocation(i *Invocation) *Invocation {
 	return &Invocation{
 		te: traceEntry{
-			appID:                  i.te.appID,
-			funcID:                 i.te.funcID,
-			duration:               i.te.duration,
-			endTS:                  i.te.endTS,
-			startTS:                i.te.startTS,
-			percentile:             i.te.percentile,
-			tail_latency_threshold: i.te.tail_latency_threshold,
+			appID:       i.te.appID,
+			funcID:      i.te.funcID,
+			duration:    i.te.duration,
+			endTS:       i.te.endTS,
+			startTS:     i.te.startTS,
+			percentile:  i.te.percentile,
+			tlthreshold: i.te.tlthreshold,
 		},
 		im: invocationMetadata{
 			invocationId: i.im.invocationId,
@@ -77,7 +73,7 @@ func CopyInvocation(i *Invocation) *Invocation {
 			responseTime: i.im.responseTime,
 			hopIds:       []string{},
 			hopDelays:    []float64{},
-			is_copy:      true,
+			srcInvoc:     i,
 		},
 	}
 }
@@ -86,83 +82,48 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 	// Row expected format: func,duration,startts,app,endts
 	appID := row[0]
 	funcID := row[1]
-
-	startTS, err := strconv.ParseFloat(row[2], 64)
+	funcRows, err := strconv.ParseInt(row[2], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing rows in row (%v): %q", row, err)
+	}
+	startTS, err := strconv.ParseFloat(row[3], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing start_timestamp in row (%v): %q", row, err)
 	}
-
-	duration, err := strconv.ParseFloat(row[3], 64)
+	duration, err := strconv.ParseFloat(row[4], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing duration in row (%v): %q", row, err)
 	}
-
-	endTS, err := strconv.ParseFloat(row[4], 64)
+	endTS, err := strconv.ParseFloat(row[5], 64)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing end_timestamp in row (%v): %q", row, err)
 	}
 
-	mu, err := strconv.ParseFloat(row[5], 64)
+	p50, p95, p99, p999, p9999, p100, err := extractPercentiles(row)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing mu in row (%v): %q", row, err)
+		return nil, fmt.Errorf("Error extracting percentiles in row (%v): %q", row, err)
 	}
 
-	sigma, err := strconv.ParseFloat(row[6], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing sigma in row (%v): %q", row, err)
-	}
-
-	p50, err := strconv.ParseFloat(row[7], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p50 in row (%v): %q", row, err)
-	}
-
-	p95, err := strconv.ParseFloat(row[8], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
-	}
-
-	p99, err := strconv.ParseFloat(row[9], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
-	}
-
-	p999, err := strconv.ParseFloat(row[10], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p999 in row (%v): %q", row, err)
-	}
-
-	p9999, err := strconv.ParseFloat(row[11], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p9999 in row (%v): %q", row, err)
-	}
-
-	p100, err := strconv.ParseFloat(row[12], 64)
-	if err != nil {
-		return nil, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
-	}
-
-	var tail_latency_threshold float64
+	var tlthreshold float64
 	switch tlProb {
 	case "p95":
-		tail_latency_threshold = p95
+		tlthreshold = p95
 	case "p99":
-		tail_latency_threshold = p99
+		tlthreshold = p99
 	case "p999":
-		tail_latency_threshold = p999
+		tlthreshold = p999
 	case "p9999":
-		tail_latency_threshold = p9999
+		tlthreshold = p9999
 	}
 
 	return &traceEntry{
 		appID:     appID,
 		funcID:    funcID,
+		rows:      funcRows,
 		duration:  duration,
 		endTS:     endTS,
 		startTS:   startTS,
 		coldStart: p100,
-		mu:        mu,
-		sigma:     sigma,
 		percentile: percentile{
 			p50:   p50,
 			p95:   p95,
@@ -171,9 +132,38 @@ func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 			p9999: p9999,
 			p100:  p100,
 		},
-		tlProb:                 tlProb,
-		tail_latency_threshold: tail_latency_threshold,
+		tlProb:      tlProb,
+		tlthreshold: tlthreshold,
 	}, nil
+}
+
+func extractPercentiles(row []string) (float64, float64, float64, float64, float64, float64, error) {
+	p50, err := strconv.ParseFloat(row[6], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p50 in row (%v): %q", row, err)
+	}
+	p95, err := strconv.ParseFloat(row[7], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p95 in row (%v): %q", row, err)
+	}
+	p99, err := strconv.ParseFloat(row[8], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p99 in row (%v): %q", row, err)
+	}
+	p999, err := strconv.ParseFloat(row[9], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p999 in row (%v): %q", row, err)
+	}
+	p9999, err := strconv.ParseFloat(row[10], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p9999 in row (%v): %q", row, err)
+	}
+	p100, err := strconv.ParseFloat(row[11], 64)
+	if err != nil {
+		return 0, 0, 0, 0, 0, 0, fmt.Errorf("Error parsing p100 in row (%v): %q", row, err)
+	}
+
+	return p50, p95, p99, p999, p9999, p100, nil
 }
 
 func (i *Invocation) AddProcessedTs(pt float64) {
@@ -186,68 +176,44 @@ func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
 	i.im.responseTime += hopResponse
 }
 
-func (i *Invocation) hasHops() bool {
-	return len(i.im.hopIds) != 0 && len(i.im.hopDelays) != 0
+func (i *Invocation) IsTailLatency() bool {
+	return i.te.duration > i.te.tlthreshold
 }
 
-func (i *Invocation) IsTailLatency() bool {
-	return i.te.duration > i.te.tail_latency_threshold
+func (i *Invocation) GetTailLatencyThreshold() float64 {
+	return i.te.tlthreshold
 }
 
 func (i *Invocation) IsCopy() bool {
-	return i.im.is_copy
+	return i.im.srcInvoc != nil
 }
 
 func (i *Invocation) IsColdStart() bool {
-	return i.im.is_cold_start
+	return i.GetDuration() >= i.GetColdStart()
 }
 
 func (i *Invocation) SetAsColdStart() {
-	i.im.is_cold_start = true
-}
-
-func (i *Invocation) IncrementFowardTimes() {
-	i.im.fowardTimes = i.im.fowardTimes + 1
-}
-
-func (i *Invocation) GetFowardTimes() float64 {
-	return i.im.fowardTimes
+	i.SetDuration(i.GetColdStart())
 }
 
 func (i *Invocation) GetAppID() string {
 	return i.te.appID
 }
 
-func (i *Invocation) GetProcessedTs() []float64 {
-	return i.im.processedTs
+func (i *Invocation) GetFuncID() string {
+	return i.te.funcID
+}
+
+func (i *Invocation) GetRows() int64 {
+	return i.te.rows
 }
 
 func (i *Invocation) GetResponseTime() float64 {
 	return i.im.responseTime
 }
 
-func (i *Invocation) GetHops() []string {
-	return i.im.hopIds
-}
-
-func (i *Invocation) GetFuncID() string {
-	return i.te.funcID
-}
-
 func (i *Invocation) GetDuration() float64 {
 	return i.te.duration
-}
-
-func (i *Invocation) GetTailLatencyThreshold() float64 {
-	return i.te.tail_latency_threshold
-}
-
-func (i *Invocation) GetMU() float64 {
-	return i.te.mu
-}
-
-func (i *Invocation) GetSigma() float64 {
-	return i.te.sigma
 }
 
 func (i *Invocation) GetColdStart() float64 {
@@ -258,20 +224,20 @@ func (i *Invocation) GetStartTS() float64 {
 	return i.te.startTS
 }
 
-func (i *Invocation) GetID() string {
-	return i.getDatasetID() + i.GetAppID() + i.GetFuncID()
+func (i *Invocation) GetSrcInvoc() *Invocation {
+	return i.im.srcInvoc
 }
 
-func (i *Invocation) getDatasetID() string {
-	return i.im.invocationId
+func (i *Invocation) SetDuration(nd float64) {
+	i.te.duration = nd
 }
 
-func (i *Invocation) GetLastHop() string {
-	return i.im.hopIds[len(i.im.hopIds)-1]
+func (i *Invocation) SetForwardedTs(ft float64) {
+	i.im.forwardedTs = append(i.im.forwardedTs, ft)
 }
 
-func (i *Invocation) GetLastHopResponse() float64 {
-	return i.im.hopDelays[len(i.im.hopDelays)-1]
+func (i *Invocation) UpdateTechniqueResponseTime(rt float64) {
+	i.im.techniqueResponseTime = rt
 }
 
 func (i *Invocation) GetOutPut() []string {
@@ -301,21 +267,9 @@ func (i *Invocation) GetOutPut() []string {
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
 		strconv.FormatFloat(i.im.techniqueResponseTime, 'f', -1, 64),
 
-		strconv.FormatFloat(i.te.tail_latency_threshold, 'f', -1, 64),
-		strconv.FormatFloat(i.im.fowardTimes, 'f', -1, 64),
+		strconv.FormatFloat(i.te.tlthreshold, 'f', -1, 64),
+		strconv.FormatInt(int64(len(i.im.forwardedTs)), 10),
 		strings.Join(i.im.hopIds, ";"),
 		strings.Join(hopDelaysStr, ";"),
 	}
-}
-
-func (i *Invocation) SetDuration(nd float64) {
-	i.te.duration = nd
-}
-
-func (i *Invocation) SetForwardedTs(ft float64) {
-	i.im.forwardedTs = append(i.im.forwardedTs, ft)
-}
-
-func (i *Invocation) UpdateTechniqueResponseTime(rt float64) {
-	i.im.techniqueResponseTime = rt
 }

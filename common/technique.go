@@ -3,46 +3,44 @@ package common
 import (
 	"time"
 
-	"golang.org/x/exp/rand"
-
 	"github.com/agoussia/godes"
 	"github.com/dfquaresma/faas-simulator/model"
+	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
 
 type technique struct {
 	*godes.Runner
-	rp        *resourceProvisioner
-	iIdAidFid map[string]*model.Invocation
-	config    string
-	ln        distuv.LogNormal
+	rp      *resourceProvisioner
+	s       *selector
+	config  string
+	uniform distuv.Uniform
 }
 
-func newTechnique(rp *resourceProvisioner, t string, mu, sigma float64) *technique {
+func newTechnique(rp *resourceProvisioner, t string, s *selector) *technique {
 	return &technique{
-		Runner:    &godes.Runner{},
-		rp:        rp,
-		iIdAidFid: make(map[string]*model.Invocation),
-		config:    t,
-		ln: distuv.LogNormal{
-			Mu:    mu,
-			Sigma: sigma,
-			Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
+		Runner: &godes.Runner{},
+		rp:     rp,
+		s:      s,
+		config: t,
+		uniform: distuv.Uniform{
+			Min: 0,
+			Max: 1,
+			Src: rand.NewSource(uint64(time.Now().Nanosecond())),
 		},
 	}
 }
 
-func (t *technique) newLatency(mu, sigma float64) float64 {
-	// TODO(): should generate new latency as allInvocsForAppIDFuncID(AppID, FuncID).selectRandomValueFromList()
-	return t.ln.Rand()
+func (t *technique) newLatency(id string) float64 {
+	latencies := t.s.getDataSet().GetLatenciesOf(id)
+	return latencies[int(t.uniform.Rand()*float64(len(latencies)))]
 }
 
 func (t *technique) forward(i *model.Invocation) {
-	t.iIdAidFid[i.GetID()] = i
 	t.rp.getAvailableReplica().process(i)
 	if t.config == "RequestHedgingDefault" {
 		iCopy := model.CopyInvocation(i)
-		iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+		iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
 		i.SetForwardedTs(godes.GetSystemTime())
 		t.rp.getAvailableReplica().process(iCopy)
 	}
@@ -52,15 +50,15 @@ func (t *technique) processWarning(i *model.Invocation) {
 	switch t.config {
 	case "GCI":
 		if !i.IsColdStart() {
-			i.IncrementFowardTimes()
-			i.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+			i.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
+			i.SetForwardedTs(godes.GetSystemTime())
 			t.rp.getAvailableReplica().process(i)
 		}
 
 	case "RequestHedgingOpt":
 		if !i.IsCopy() {
 			iCopy := model.CopyInvocation(i)
-			iCopy.SetDuration(t.newLatency(i.GetMU(), i.GetSigma()))
+			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			t.rp.getAvailableReplica().process(iCopy)
 		}
@@ -69,7 +67,7 @@ func (t *technique) processWarning(i *model.Invocation) {
 
 func (t *technique) processResponse(i *model.Invocation) {
 	if i.IsCopy() {
-		iRef := t.iIdAidFid[i.GetID()]
+		iRef := i.GetSrcInvoc()
 		iRef.UpdateTechniqueResponseTime(i.GetResponseTime())
 	}
 }

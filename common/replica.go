@@ -61,15 +61,14 @@ func (r *replica) Run() {
 
 			dur := i.GetDuration()
 			if r.reqsProcessed == 0 {
-				// first Req of this replica
-				i.SetDuration(i.GetColdStart())
 				i.SetAsColdStart()
 				dur = i.GetColdStart()
 			}
 
 			if i.IsTailLatency() {
 				tailLatencyThreshold := i.GetTailLatencyThreshold()
-				tailLatency := i.GetDuration() - tailLatencyThreshold
+				i.UpdateResponse(tailLatencyThreshold, r.replicaID)
+				dur = i.GetDuration() - tailLatencyThreshold // dur is now the surplus latency after the threshold
 				switch r.cfg.Technique {
 				case "GCI":
 					if !i.IsColdStart() {
@@ -91,10 +90,7 @@ func (r *replica) Run() {
 				case "RequestHedgingOpt":
 					if !i.IsCopy() {
 						godes.Advance(tailLatencyThreshold)
-						i.UpdateResponse(tailLatencyThreshold, r.replicaID)
-
 						r.busyTime += tailLatencyThreshold
-						dur = tailLatency
 						r.rp.warnReqLatency(i)
 					}
 				}
@@ -112,11 +108,11 @@ func (r *replica) Run() {
 		}
 
 		if r.arrivalQueue.Len() == 0 {
-			r.arrivalCond.Set(false)
 			if r.terminatedCond.GetState() {
 				r.setUptimeStats()
 				break
 			}
+			r.arrivalCond.Set(false)
 			r.isBusy.Set(false)
 			r.rp.setAvailable(r)
 		}

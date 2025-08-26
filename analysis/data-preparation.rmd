@@ -50,11 +50,11 @@ filter_functions <- function(df) {
 
 ```{r}
 start_time <- Sys.time()
-data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
-#data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/generator/"
+#data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/azure/"
+data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/generator/"
 #file_name = "sample-100k"
-file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
-#file_name = "constante-constante_with_tail"
+#file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
+file_name = "constante-constante_with_tail"
 
 inv2021 = read.csv(paste(data_path, file_name, ".csv", sep=""), header = TRUE)
 

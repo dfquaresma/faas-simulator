@@ -166,22 +166,8 @@ func extractPercentiles(row []string) (float64, float64, float64, float64, float
 	return p50, p95, p99, p999, p9999, p100, nil
 }
 
-func (i *Invocation) AddProcessedTs(pt float64) {
-	i.im.processedTs = append(i.im.processedTs, pt)
-}
-
-func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
-	i.im.hopIds = append(i.im.hopIds, replicaID)
-	i.im.hopDelays = append(i.im.hopDelays, hopResponse)
-	i.im.responseTime += hopResponse
-}
-
 func (i *Invocation) IsTailLatency() bool {
 	return i.te.duration > i.te.tlthreshold
-}
-
-func (i *Invocation) GetTailLatencyThreshold() float64 {
-	return i.te.tlthreshold
 }
 
 func (i *Invocation) IsCopy() bool {
@@ -192,8 +178,43 @@ func (i *Invocation) IsColdStart() bool {
 	return i.GetDuration() >= i.GetColdStart()
 }
 
+func (i *Invocation) AddProcessedTs(pt float64) {
+	i.im.processedTs = append(i.im.processedTs, pt)
+}
+
+func (i *Invocation) UpdateTechniqueResponseTime(iCopy *Invocation) {
+	iCopyProcessedTs := iCopy.im.processedTs[len(iCopy.im.processedTs)-1]
+	i.AddProcessedTs(iCopyProcessedTs)
+	i.im.techniqueResponseTime = iCopyProcessedTs - i.im.forwardedTs[0]
+}
+
+func (i Invocation) UpdateSource(src *Invocation) {
+	i.im.srcInvoc = src
+}
+
+func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
+	i.im.responseTime += hopResponse
+	if i.IsCopy() {
+		i = i.im.srcInvoc
+	}
+	i.im.hopIds = append(i.im.hopIds, replicaID)
+	i.im.hopDelays = append(i.im.hopDelays, hopResponse)
+}
+
 func (i *Invocation) SetAsColdStart() {
 	i.SetDuration(i.GetColdStart())
+}
+
+func (i *Invocation) SetDuration(nd float64) {
+	i.te.duration = nd
+}
+
+func (i *Invocation) SetForwardedTs(ft float64) {
+	i.im.forwardedTs = append(i.im.forwardedTs, ft)
+}
+
+func (i *Invocation) GetTailLatencyThreshold() float64 {
+	return i.te.tlthreshold
 }
 
 func (i *Invocation) GetAppID() string {
@@ -226,18 +247,6 @@ func (i *Invocation) GetStartTS() float64 {
 
 func (i *Invocation) GetSrcInvoc() *Invocation {
 	return i.im.srcInvoc
-}
-
-func (i *Invocation) SetDuration(nd float64) {
-	i.te.duration = nd
-}
-
-func (i *Invocation) SetForwardedTs(ft float64) {
-	i.im.forwardedTs = append(i.im.forwardedTs, ft)
-}
-
-func (i *Invocation) UpdateTechniqueResponseTime(rt float64) {
-	i.im.techniqueResponseTime = rt
 }
 
 func (i *Invocation) GetOutPut() []string {

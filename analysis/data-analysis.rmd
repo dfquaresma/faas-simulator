@@ -27,8 +27,21 @@ load_data <- function(results_path, techs, probs, idletimes) {
         fileName = paste(paste(t, i, p, sep = "_"), "invocations.csv", sep="-")
         results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
   
-        results_treated <- select(transform(results, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
-        results_treated$responseTimeUseful <- ifelse(results_treated$minResponseTime != 0, results_treated$minResponseTime, results_treated$responseTime)
+        results_treated <- select(
+          transform(
+            results, 
+            minResponseTime = pmin(responseTime, techniqueResponseTime)
+          ),
+          responseTime,
+          techniqueResponseTime,
+          minResponseTime
+        )
+
+        results_treated$responseTimeUseful <- ifelse(
+          results_treated$minResponseTime != 0,
+          results_treated$minResponseTime,
+          results_treated$responseTime
+        )
   
         technique <- c(technique, t)
         tailLatencyProb <- c(tailLatencyProb, p)
@@ -171,10 +184,10 @@ ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "
     print(p)
 }
 
-boxplot_plot <- function(title, df_a, df_b, df_c, yrange, outliershape = NA) {
-  return(ggplot(rbind(df_a, df_b, df_c), aes(x=scenario, y=responseTime, fill=scenario)) +
+boxplot_plot <- function(title, df_a, df_b, df_c, df_d, yrange, outliershape = NA) {
+  return(ggplot(rbind(df_a, df_b, df_c, df_d), aes(x=scenario, y=responseTime, fill=scenario)) +
   geom_boxplot(outlier.shape = outliershape) +
-  scale_fill_manual(values=hcl(c(15, 195, 150), 100, 65, alpha=c(0.5, 1))) +
+  scale_fill_manual(values = c("red", "purple", "blue", "limegreen")) +
   coord_cartesian(ylim=yrange) + 
   theme(text=element_text(size=15)) +
   theme(legend.text=element_text(size=15)) +
@@ -188,7 +201,8 @@ boxplot_plot <- function(title, df_a, df_b, df_c, yrange, outliershape = NA) {
 
 ## LOAD GENERAL DATA
 ```{r}
-results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generated"
+results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generator"
+#results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
 techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
 probs      <- c('tlprobp95', 'tlprobp99', 'tlprobp999', 'tlprobp9999')
 idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
@@ -211,19 +225,19 @@ repl_data = filter(df_for_replicas, technique != "")
 scenario = "_idletimeINF_tlprobp95-invocations.csv"
 technique = "GCI"
 gci = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-gci <- select(transform(gci, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+gci <- select(transform(gci, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
 gci$responseTimeUseful <- ifelse(gci$minResponseTime != 0, gci$minResponseTime, gci$responseTime)
 technique = "RequestHedgingDefault"
 rh = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-rh <- select(transform(rh, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+rh <- select(transform(rh, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
 rh$responseTimeUseful <- ifelse(rh$minResponseTime != 0, rh$minResponseTime, rh$responseTime)
 technique = "RequestHedgingOpt"
 rhd = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-rhd <- select(transform(rhd, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+rhd <- select(transform(rhd, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
 rhd$responseTimeUseful <- ifelse(rhd$minResponseTime != 0, rhd$minResponseTime, rhd$responseTime)
 technique = "Vanilla"
 vanilla = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-vanilla <- select(transform(vanilla, minResponseTime = pmin(responseTime, rHresponseTime)), responseTime, rHresponseTime, minResponseTime)
+vanilla <- select(transform(vanilla, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
 vanilla$responseTimeUseful <- ifelse(vanilla$minResponseTime != 0, vanilla$minResponseTime, vanilla$responseTime)
 rm(technique)
 ```
@@ -255,7 +269,8 @@ ecdf_plot("Comparison of ECDF Curves of Experiments", data.frame(
 # BOXPLOT VISUAL TEST
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 df_gci_to_boxplot = data.frame(scenario = "gci", responseTime = gci$responseTimeUseful)
-df_rhd_to_boxplot = data.frame(scenario = " rhd", responseTime = rhd$responseTimeUseful)
+df_rh_to_boxplot = data.frame(scenario = "rh", responseTime = rh$responseTimeUseful)
+df_rhd_to_boxplot = data.frame(scenario = "rhd", responseTime = rhd$responseTimeUseful)
 df_van_to_boxplot = data.frame(scenario = "vanilla", responseTime = vanilla$responseTimeUseful)
-boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rhd_to_boxplot, df_van_to_boxplot, c(0, 5))
+boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rh_to_boxplot, df_rhd_to_boxplot, df_van_to_boxplot, c(0, 5))
 ```

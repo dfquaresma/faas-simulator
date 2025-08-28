@@ -10,7 +10,6 @@ type Dataset struct {
 	iterator    int
 	invocations []Invocation
 	latencies   map[string][]float64
-	coldstart   float64
 }
 
 func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
@@ -18,17 +17,17 @@ func NewDataSet(rows [][]string, tlProb string) (*Dataset, error) {
 	latencies := make(map[string][]float64)
 	tailLatencyCount := 0
 	for id, row := range rows {
-		entry, err := ToTraceEntry(row, tlProb)
+		entry, err := toTraceEntry(row, tlProb)
 		if err != nil {
 			return nil, err
 		}
 		if entry.duration > entry.tlthreshold {
 			tailLatencyCount += 1
 		}
-		invoc := NewInvocation(strconv.Itoa(id), *entry)
+		invoc := newInvocation(strconv.Itoa(id), *entry)
 		list, exists := latencies[invoc.GetAppID()+invoc.GetFuncID()]
 		if !exists {
-			list = make([]float64, 0, invoc.GetRows())
+			list = make([]float64, 0, invoc.getRows())
 		}
 		latencies[invoc.GetAppID()+invoc.GetFuncID()] = append(list, invoc.GetDuration())
 		invocs[id] = *invoc
@@ -77,7 +76,7 @@ func (d *Dataset) GetOutPut() [][]string {
 		"tl_threshold", "fowardTimes", "hopsId", "hopDelays"}
 	res = append(res, header)
 	for _, inv := range d.invocations {
-		res = append(res, inv.GetOutPut())
+		res = append(res, inv.getOutPut())
 	}
 	return res
 }

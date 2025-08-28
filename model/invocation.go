@@ -46,7 +46,7 @@ type percentile struct {
 	p100  float64
 }
 
-func NewInvocation(id string, te traceEntry) *Invocation {
+func newInvocation(id string, te traceEntry) *Invocation {
 	return &Invocation{
 		te: te,
 		im: invocationMetadata{
@@ -60,10 +60,13 @@ func CopyInvocation(i *Invocation) *Invocation {
 		te: traceEntry{
 			appID:       i.te.appID,
 			funcID:      i.te.funcID,
+			rows:        i.te.rows,
+			startTS:     i.te.startTS,
 			duration:    i.te.duration,
 			endTS:       i.te.endTS,
-			startTS:     i.te.startTS,
 			percentile:  i.te.percentile,
+			coldStart:   i.te.coldStart,
+			tlProb:      i.te.tlProb,
 			tlthreshold: i.te.tlthreshold,
 		},
 		im: invocationMetadata{
@@ -78,8 +81,8 @@ func CopyInvocation(i *Invocation) *Invocation {
 	}
 }
 
-func ToTraceEntry(row []string, tlProb string) (*traceEntry, error) {
-	// Row expected format: func,duration,startts,app,endts
+func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
+	// Row expected format: app,func,rows,startts,duration,endts
 	appID := row[0]
 	funcID := row[1]
 	funcRows, err := strconv.ParseInt(row[2], 10, 64)
@@ -167,7 +170,7 @@ func extractPercentiles(row []string) (float64, float64, float64, float64, float
 }
 
 func (i *Invocation) IsTailLatency() bool {
-	return i.te.duration > i.te.tlthreshold
+	return i.GetDuration() > i.te.tlthreshold
 }
 
 func (i *Invocation) IsCopy() bool {
@@ -183,9 +186,9 @@ func (i *Invocation) AddProcessedTs(pt float64) {
 }
 
 func (i *Invocation) UpdateTechniqueResponseTime(iCopy *Invocation) {
-	iCopyProcessedTs := iCopy.im.processedTs[len(iCopy.im.processedTs)-1]
-	i.AddProcessedTs(iCopyProcessedTs)
-	i.im.techniqueResponseTime = iCopyProcessedTs - i.im.forwardedTs[0]
+	i.im.processedTs = append(i.im.processedTs, iCopy.im.processedTs...)
+	i.im.forwardedTs = append(i.im.forwardedTs, iCopy.im.forwardedTs...)
+	i.im.techniqueResponseTime = iCopy.im.processedTs[0] - i.im.forwardedTs[0]
 }
 
 func (i Invocation) UpdateSource(src *Invocation) {
@@ -225,12 +228,11 @@ func (i *Invocation) GetFuncID() string {
 	return i.te.funcID
 }
 
-func (i *Invocation) GetRows() int64 {
+func (i *Invocation) getRows() int64 {
 	return i.te.rows
 }
-
-func (i *Invocation) GetResponseTime() float64 {
-	return i.im.responseTime
+func (i *Invocation) GetInvocationId() string {
+	return i.im.invocationId
 }
 
 func (i *Invocation) GetDuration() float64 {
@@ -249,7 +251,11 @@ func (i *Invocation) GetSrcInvoc() *Invocation {
 	return i.im.srcInvoc
 }
 
-func (i *Invocation) GetOutPut() []string {
+func (i *Invocation) GetP999() float64 {
+	return i.te.percentile.p999
+}
+
+func (i *Invocation) getOutPut() []string {
 	forwardedTsStr := make([]string, len(i.im.forwardedTs))
 	for i, f := range i.im.forwardedTs {
 		forwardedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)

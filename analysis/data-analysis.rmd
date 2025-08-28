@@ -1,7 +1,7 @@
 ---
 title: "Mestrado"
 author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
-date: "may, 2024"
+date: "ago, 2025"
 output: pdf_document
 ---
 
@@ -12,7 +12,7 @@ library(ggplot2)
 library(tidyr)
 ##require(quantileCI)
 
-load_data <- function(results_path, techs, probs, idletimes) {
+load_data <- function(results_path, techs, probs, skip_coldstart, idletimes) {
   technique <- c()
   tailLatencyProb <- c()
   idletime <- c()
@@ -21,52 +21,57 @@ load_data <- function(results_path, techs, probs, idletimes) {
   p99 <- c()
   p999 <- c()
   p9999 <- c()
-  for (t in techs) {
-    for (p in probs) {
-      for (i in idletimes) {
-        fileName = paste(paste(t, i, p, sep = "_"), "invocations.csv", sep="-")
-        results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
+  for (scs in skip_coldstart) {
+    for (t in techs) {
+      for (p in probs) {
+        for (i in idletimes) {
+          fileName = paste(paste(t, i, p, scs, sep = "_"), "invocations.csv", sep="-")
+          results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
+    
+          results_treated <- select(
+            transform(
+              results, 
+              minResponseTime = pmin(responseTime, techniqueResponseTime)
+            ),
+            responseTime,
+            techniqueResponseTime,
+            minResponseTime
+          )
   
-        results_treated <- select(
-          transform(
-            results, 
-            minResponseTime = pmin(responseTime, techniqueResponseTime)
-          ),
-          responseTime,
-          techniqueResponseTime,
-          minResponseTime
-        )
-
-        results_treated$responseTimeUseful <- ifelse(
-          results_treated$minResponseTime != 0,
-          results_treated$minResponseTime,
-          results_treated$responseTime
-        )
-  
-        technique <- c(technique, t)
-        tailLatencyProb <- c(tailLatencyProb, p)
-        idletime <- c(idletime, i)
-        p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
-        p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
-        p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
-        p999 <- c(p999, quantile(results_treated$responseTimeUseful, probs = 0.999))
-        p9999 <- c(p9999, quantile(results_treated$responseTimeUseful, probs = 0.9999))
+          results_treated$responseTimeUseful <- ifelse(
+            results_treated$minResponseTime != 0,
+            results_treated$minResponseTime,
+            results_treated$responseTime
+          )
+    
+          technique <- c(technique, t)
+          tailLatencyProb <- c(tailLatencyProb, p)
+          idletime <- c(idletime, i)
+          p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
+          p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
+          p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
+          p999 <- c(p999, quantile(results_treated$responseTimeUseful, probs = 0.999))
+          p9999 <- c(p9999, quantile(results_treated$responseTimeUseful, probs = 0.9999))
+        }
       }
     }
   }
+
   df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p95, p99, p999, p9999)
 
   uptime <- c()
   busyTime <- c()
   replicasCount <- c()
-  for (t in techs) {
-    for (p in probs) {
-      for (i in idletimes) {
-        fileName = paste(paste(t, i, p, sep = "_"), "replicas.csv", sep="-")
-        results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
-        uptime <- c(uptime, sum(results$upTime))
-        busyTime <- c(busyTime, sum(results$busyTime))
-        replicasCount <- c(replicasCount, nrow(results))
+  for (scs in skip_coldstart) {
+    for (t in techs) {
+      for (p in probs) {
+        for (i in idletimes) {
+          fileName = paste(paste(t, i, p, scs, sep = "_"), "replicas.csv", sep="-")
+          results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
+          uptime <- c(uptime, sum(results$upTime))
+          busyTime <- c(busyTime, sum(results$busyTime))
+          replicasCount <- c(replicasCount, nrow(results))
+        }
       }
     }
   }
@@ -114,17 +119,22 @@ ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "
     rh.p999 <- quantile(data$rh, 0.999)
     rh.p50 <- quantile(data$rh, 0.5)
     
-    rhd.color <- "blue"
-    rhd.p95 <- quantile(data$rhd, 0.95)
-    rhd.p999 <- quantile(data$rhd, 0.999)
-    rhd.p50 <- quantile(data$rhd, 0.5)
+    rho.color <- "blue"
+    rho.p95 <- quantile(data$rho, 0.95)
+    rho.p999 <- quantile(data$rho, 0.999)
+    rho.p50 <- quantile(data$rho, 0.5)
 
     gci.color <- "red"
     gci.p95 <- quantile(data$gci, 0.95)
     gci.p999 <- quantile(data$gci, 0.999)
     gci.p50 <- quantile(data$gci, 0.5)
 
-    annotate_y = 0.9
+    # Definindo alturas diferentes para cada grupo
+    vanilla_y = 0.9
+    rh_y = 0.1
+    rho_y = 0.7
+    gci_y = 0.4
+    
     size = 0.5
     alpha = 0.8
     angle = 90
@@ -142,38 +152,42 @@ ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "
     theme(legend.text=element_text(size=12)) +
     theme(legend.position="top") +
 
-    scale_color_manual(values=c("vanilla"="limegreen", "rh"="purple", "rhd"="blue", "gci"="red")) +
+    scale_color_manual(values=c("vanilla"="limegreen", "rh"="purple", "rho"="blue", "gci"="red")) +
     scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
-    scale_linetype_manual(values=c("vanilla"="solid", "rh"="dotted", "rhd"="dotdash", "gci"="dashed")) +
+    scale_linetype_manual(values=c("vanilla"="solid", "rh"="dotted", "rho"="dotdash", "gci"="dashed")) +
     labs(x="Response Time (ms)",y="ECDF", color="scenario", linetype="scenario") +
     ggtitle(title) +
 
-    annotate(geom="text", x=vanilla.p50, y=annotate_y, label="Median", angle=angle, color=vanilla.color) +
+    # Vanilla annotations - todos na mesma altura do grupo vanilla
+    annotate(geom="text", x=vanilla.p50, y=vanilla_y, label="Median", angle=angle, color=vanilla.color) +
     geom_vline(xintercept=vanilla.p50, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
-    annotate(geom="text", x=vanilla.p95, y=annotate_y, label="95th", angle=angle, color=vanilla.color) +
+    annotate(geom="text", x=vanilla.p95, y=vanilla_y, label="95th", angle=angle, color=vanilla.color) +
     geom_vline(xintercept=vanilla.p95, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
-    annotate(geom="text", x=vanilla.p999, y=annotate_y, label="99.9th", angle=angle, color=vanilla.color) +
+    annotate(geom="text", x=vanilla.p999, y=vanilla_y, label="99.9th", angle=angle, color=vanilla.color) +
     geom_vline(xintercept=vanilla.p999, linetype="solid", size=size, alpha=alpha, color=vanilla.color) +
 
-    annotate(geom="text", x=rh.p50, y=annotate_y, label="Median", angle=angle, color=rh.color) +
+    # RH annotations - todos na mesma altura do grupo rh
+    annotate(geom="text", x=rh.p50, y=rh_y, label="Median", angle=angle, color=rh.color) +
     geom_vline(xintercept=rh.p50, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
-    annotate(geom="text", x=rh.p95, y=annotate_y, label="95th", angle=angle, color=rh.color) +
+    annotate(geom="text", x=rh.p95, y=rh_y, label="95th", angle=angle, color=rh.color) +
     geom_vline(xintercept=rh.p95, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
-    annotate(geom="text", x=rh.p999, y=annotate_y, label="99.9th", angle=angle, color=rh.color) +
+    annotate(geom="text", x=rh.p999, y=rh_y, label="99.9th", angle=angle, color=rh.color) +
     geom_vline(xintercept=rh.p999, linetype="dotted", size=size, alpha=alpha, color=rh.color) +
 
-    annotate(geom="text", x=rhd.p50, y=annotate_y, label="Median", angle=angle, color=rhd.color) +
-    geom_vline(xintercept=rhd.p50, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
-    annotate(geom="text", x=rhd.p95, y=annotate_y, label="95th", angle=angle, color=rhd.color) +
-    geom_vline(xintercept=rhd.p95, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
-    annotate(geom="text", x=rhd.p999, y=annotate_y, label="99.9th", angle=angle, color=rhd.color) +
-    geom_vline(xintercept=rhd.p999, linetype="dotdash", size=size, alpha=alpha, color=rhd.color) +
+    # RHO annotations - todos na mesma altura do grupo rho
+    annotate(geom="text", x=rho.p50, y=rho_y, label="Median", angle=angle, color=rho.color) +
+    geom_vline(xintercept=rho.p50, linetype="dotdash", size=size, alpha=alpha, color=rho.color) +
+    annotate(geom="text", x=rho.p95, y=rho_y, label="95th", angle=angle, color=rho.color) +
+    geom_vline(xintercept=rho.p95, linetype="dotdash", size=size, alpha=alpha, color=rho.color) +
+    annotate(geom="text", x=rho.p999, y=rho_y, label="99.9th", angle=angle, color=rho.color) +
+    geom_vline(xintercept=rho.p999, linetype="dotdash", size=size, alpha=alpha, color=rho.color) +
 
-    annotate(geom="text", x=gci.p50, y=annotate_y, label="Median", angle=angle, color=gci.color) +
+    # GCI annotations - todos na mesma altura do grupo gci
+    annotate(geom="text", x=gci.p50, y=gci_y, label="Median", angle=angle, color=gci.color) +
     geom_vline(xintercept=gci.p50, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
-    annotate(geom="text", x=gci.p95, y=annotate_y, label="95th", angle=angle, color=gci.color) +
+    annotate(geom="text", x=gci.p95, y=gci_y, label="95th", angle=angle, color=gci.color) +
     geom_vline(xintercept=gci.p95, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
-    annotate(geom="text", x=gci.p999, y=annotate_y, label="99.9th", angle=angle, color=gci.color) +
+    annotate(geom="text", x=gci.p999, y=gci_y, label="99.9th", angle=angle, color=gci.color) +
     geom_vline(xintercept=gci.p999, linetype="dashed", size=size, alpha=alpha, color=gci.color) +
 
     theme_bw()
@@ -197,17 +211,75 @@ boxplot_plot <- function(title, df_a, df_b, df_c, df_d, yrange, outliershape = N
   ggtitle(title)
   )
 }
+
+replicas_alive_plot <- function(data, scenario_col = "scenario", title = "Replicas Active") {
+  data$time_readable <- as.POSIXct(data$timestamp, origin = "2021-01-31", tz = "UTC")
+  data[[scenario_col]] <- factor(
+    data[[scenario_col]],
+    levels = c("gci", "rh", "rho", "vanilla")
+  )
+  
+  ggplot(data, aes(x = time_readable, y = replica_amount, color = !!sym(scenario_col))) +
+    geom_line(size = 0.5) +
+    geom_point(size = 0.5) +
+    scale_color_manual(values=c("vanilla"="limegreen", "rh"="purple", "rho"="blue", "gci"="red")) +
+    scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
+    scale_linetype_manual(values=c("vanilla"="solid", "rh"="dotted", "rho"="dotdash", "gci"="dashed")) +
+    scale_x_datetime(
+      date_labels = "%d %b\n%H:%M",   # e.g. "01 Jan\n12:00"
+      date_breaks = "2 days"          # tick every 2 days
+    ) +
+    labs(
+      title = title,
+      x = "Time (2-week window)",
+      y = "Amount of Alive Replicas",
+      color = "scenario"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "top"
+    )
+}
+
+plot_requests_workload <- function(data, bin_size = "10 min", title = "Requests Over Time") {
+  data$time_readable <- as.POSIXct(data$target_timestamp, origin = "2021-01-31", tz = "UTC")
+  binned_data <- data %>%
+    mutate(bin_time = cut(time_readable, breaks = bin_size)) %>%
+    group_by(bin_time) %>%
+    summarise(requests = n(), .groups = "drop") %>%
+    mutate(bin_time = as.POSIXct(bin_time, tz = "UTC"))
+
+  ggplot(binned_data, aes(x = bin_time, y = requests)) +
+    geom_line(color = "steelblue", size = 1) +
+    geom_point(color = "steelblue", size = 1) +
+    scale_x_datetime(
+      date_labels = "%d %b\n%H:%M",
+      date_breaks = "2 days"
+    ) +
+    labs(
+      title = title,
+      x = "Time (2-week window)",
+      y = "Amount of Invocations"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "none"
+    )
+}
 ```
 
-## LOAD GENERAL DATA
+## LOAD DATA RESUMING ALL SIMULATION SCENARIOS
 ```{r}
 results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generator"
 #results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
 techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
-probs      <- c('tlprobp95', 'tlprobp99', 'tlprobp999', 'tlprobp9999')
-idletimes  <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
+probs <- c('tlprobp95', 'tlprobp99')
+skipColdStarts <- c('skipColdStarttrue', 'skipColdStartfalse')
+idletimes <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
 
-data_loaded <- load_data(results_path, techs, probs, idletimes)
+data_loaded <- load_data(results_path, techs, probs, skipColdStarts, idletimes)
 df_for_invocations <- data_loaded$df_for_invocations
 df_for_replicas <- data_loaded$df_for_replicas
 
@@ -218,28 +290,6 @@ df_for_replicas <- parse_values(df_for_replicas)
 
 invoc_data = filter(df_for_invocations, technique != "")
 repl_data = filter(df_for_replicas, technique != "")
-```
-
-## LOAD SPECIFIC DATA
-```{r}
-scenario = "_idletimeINF_tlprobp95-invocations.csv"
-technique = "GCI"
-gci = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-gci <- select(transform(gci, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-gci$responseTimeUseful <- ifelse(gci$minResponseTime != 0, gci$minResponseTime, gci$responseTime)
-technique = "RequestHedgingDefault"
-rh = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-rh <- select(transform(rh, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-rh$responseTimeUseful <- ifelse(rh$minResponseTime != 0, rh$minResponseTime, rh$responseTime)
-technique = "RequestHedgingOpt"
-rhd = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-rhd <- select(transform(rhd, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-rhd$responseTimeUseful <- ifelse(rhd$minResponseTime != 0, rhd$minResponseTime, rhd$responseTime)
-technique = "Vanilla"
-vanilla = read.csv(paste(results_path, "/", technique, "/", technique, scenario, sep=""))
-vanilla <- select(transform(vanilla, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-vanilla$responseTimeUseful <- ifelse(vanilla$minResponseTime != 0, vanilla$minResponseTime, vanilla$responseTime)
-rm(technique)
 ```
 
 # INVOCATIONS AND REPLICAS METRICS PLOT
@@ -256,21 +306,114 @@ plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)",
 plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
 ```
 
-# ECDF VISUAL TEST
+## LOAD DATA FOR SPECIFIC SCENARIO
+```{r}
+results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
+invoc_file = "_idletime0.0_tlprobp95_skipColdStarttrue-invocations.csv"
+repl_file = "_idletime0.0_tlprobp95_skipColdStarttrue-replicas.csv"
+sel_file = "_idletime0.0_tlprobp95_skipColdStarttrue-selector.csv"
+
+technique = "GCI"
+gci_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+gci_invoc <- select(transform(gci_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+gci_invoc$responseTimeUseful <- ifelse(gci_invoc$minResponseTime != 0, gci_invoc$minResponseTime, gci_invoc$responseTime)
+gci_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+gci_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+
+technique = "RequestHedgingDefault"
+rh_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+rh_invoc <- select(transform(rh_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+rh_invoc$responseTimeUseful <- ifelse(rh_invoc$minResponseTime != 0, rh_invoc$minResponseTime, rh_invoc$responseTime)
+rh_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+rh_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+
+technique = "RequestHedgingOpt"
+rho_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+rho_invoc <- select(transform(rho_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+rho_invoc$responseTimeUseful <- ifelse(rho_invoc$minResponseTime != 0, rho_invoc$minResponseTime, rho_invoc$responseTime)
+rho_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+rho_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+
+technique = "Vanilla"
+vanilla_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+vanilla_invoc <- select(transform(vanilla_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+vanilla_invoc$responseTimeUseful <- ifelse(vanilla_invoc$minResponseTime != 0, vanilla_invoc$minResponseTime, vanilla_invoc$responseTime)
+vanilla_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+vanilla_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+
+azure_input = read.csv(paste("/Users/davidquaresma/Desktop/repos/faas-simulator/azure/", "AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv", sep=""))
+
+rm(results_path)
+rm(invoc_file)
+rm(repl_file)
+rm(sel_file)
+rm(technique)
+```
+
+# ECDF of Latency, Replicas Alive Through Time, Workload
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 ecdf_plot("Comparison of ECDF Curves of Experiments", data.frame(
-  vanilla = vanilla$responseTimeUseful,
-  rh = rh$responseTimeUseful,
-  rhd = rhd$responseTimeUseful,
-  gci = gci$responseTimeUseful
+  vanilla = vanilla_invoc$responseTimeUseful,
+  rh = rh_invoc$responseTimeUseful,
+  rho = rho_invoc$responseTimeUseful,
+  gci = gci_invoc$responseTimeUseful
 ), 0, 25, 0, 1, img_name="results-ecdf.png")
+
+replicas_alive_plot(
+  bind_rows(vanilla = vanilla_sel, rh = rh_sel, rho = rho_sel, gci = gci_sel, .id = "scenario"),
+  scenario_col = "scenario",
+  title = "Replicas Active: idletime15.0, tlprobp95"
+)
+replicas_alive_plot(
+  bind_rows(gci = gci_sel, .id = "scenario"),
+  scenario_col = "scenario",
+  title = "Replicas Active: idletime15.0, tlprobp95"
+)
+replicas_alive_plot(
+  bind_rows(rh = rh_sel, rho = rho_sel, .id = "scenario"),
+  scenario_col = "scenario",
+  title = "Replicas Active: idletime15.0, tlprobp95"
+)
+replicas_alive_plot(
+  bind_rows(rho = rho_sel, .id = "scenario"),
+  scenario_col = "scenario",
+  title = "Replicas Active: idletime15.0, tlprobp95"
+)
+replicas_alive_plot(
+  bind_rows(vanilla = vanilla_sel, .id = "scenario"),
+  scenario_col = "scenario",
+  title = "Replicas Active: idletime15.0, tlprobp95"
+)
+
+azure_input$target_timestamp = azure_input$start_timestamp
+plot_requests_workload(azure_input, title="Invocations Starting At")
+azure_input$target_timestamp = azure_input$end_timestamp
+plot_requests_workload(azure_input, title="Invocations Ending At")
 ```
 
 # BOXPLOT VISUAL TEST
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 df_gci_to_boxplot = data.frame(scenario = "gci", responseTime = gci$responseTimeUseful)
 df_rh_to_boxplot = data.frame(scenario = "rh", responseTime = rh$responseTimeUseful)
-df_rhd_to_boxplot = data.frame(scenario = "rhd", responseTime = rhd$responseTimeUseful)
+df_rho_to_boxplot = data.frame(scenario = "rho", responseTime = rho$responseTimeUseful)
 df_van_to_boxplot = data.frame(scenario = "vanilla", responseTime = vanilla$responseTimeUseful)
-boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rh_to_boxplot, df_rhd_to_boxplot, df_van_to_boxplot, c(0, 5))
+boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rh_to_boxplot, df_rho_to_boxplot, df_van_to_boxplot, c(0, 5))
+```
+
+# PLAYGROUND TO EXPLORING FUNCS
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+azure_input = read.csv(paste("/Users/davidquaresma/Desktop/repos/faas-simulator/azure/", "AzureFunctionsInvocationTraceForTwoWeeksJan2021.csv", sep=""))
+
+# check app functions rows
+length(unique(azure_input$func))
+azure_input %>% group_by(func) %>% summarise(count = n()) %>% arrange(desc(count))
+
+# check apps with no zero duration
+length(unique(azure_input[azure_input$duration != 0, ]$func))
+azure_input[azure_input$duration != 0, ] %>% group_by(func) %>% summarise(count = n())%>% arrange(desc(count))
+
+# check for specific app
+azure_input_filter = filter(azure_input, app == "a594f92f84072b4cd031fe5283d1781a6e98f430696dec0a8e3b02eadb5fc0b8")
+length(unique(azure_input_filter$func))
+azure_input_filter %>% group_by(func) %>% summarise(count = n())%>% arrange(desc(count))
 ```

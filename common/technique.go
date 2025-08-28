@@ -41,7 +41,7 @@ func (t *technique) forward(i *model.Invocation) {
 	if t.config == "RequestHedgingDefault" {
 		iCopy := model.CopyInvocation(i)
 		iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
-		i.SetForwardedTs(godes.GetSystemTime())
+		iCopy.SetForwardedTs(godes.GetSystemTime())
 		t.rp.getAvailableReplica().process(iCopy)
 	}
 }
@@ -50,8 +50,8 @@ func (t *technique) processWarning(i *model.Invocation) {
 	switch t.config {
 	case "GCI":
 		if !i.IsColdStart() {
-			i.SetForwardedTs(godes.GetSystemTime())
 			iCopy := model.CopyInvocation(i)
+			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
 			if i.IsCopy() {
 				// we may shedding multiple times, thus fix source invocation ref
@@ -62,8 +62,8 @@ func (t *technique) processWarning(i *model.Invocation) {
 
 	case "RequestHedgingOpt":
 		if !i.IsCopy() {
-			i.SetForwardedTs(godes.GetSystemTime())
 			iCopy := model.CopyInvocation(i)
+			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
 			t.rp.getAvailableReplica().process(iCopy)
 		}

@@ -1,6 +1,8 @@
 package common
 
 import (
+	"strconv"
+
 	"github.com/dfquaresma/faas-simulator/model"
 )
 
@@ -8,6 +10,8 @@ type selector struct {
 	provisioners map[string]*resourceProvisioner
 	dataset      *model.Dataset
 	cfg          model.Config
+	register     [][]string
+	replicas     int64
 }
 
 func NewSelector(dataset *model.Dataset, cfg model.Config) *selector {
@@ -15,6 +19,7 @@ func NewSelector(dataset *model.Dataset, cfg model.Config) *selector {
 		provisioners: make(map[string]*resourceProvisioner),
 		dataset:      dataset,
 		cfg:          cfg,
+		register:     [][]string{},
 	}
 }
 
@@ -46,14 +51,25 @@ func (s *selector) terminate() {
 	}
 }
 
-func (s *selector) GetOutPut() [][]string {
-	res := [][]string{}
-	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed", "lastWorkTS", "shutdownTS"}
-	res = append(res, header)
+func (s *selector) registerReplicaScaling(amount int64, timestamp float64) {
+	s.replicas += amount
+	replicasStr := strconv.FormatInt(s.replicas, 10)
+	timestampStr := strconv.FormatFloat(timestamp, 'f', -1, 64)
+	s.register = append(s.register, []string{replicasStr, timestampStr})
+}
+
+func (s *selector) GetOutPut() ([][]string, [][]string) {
+	rp_res := [][]string{}
+	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed", "lastWorkTS", "startTS", "shutdownTS"}
+	rp_res = append(rp_res, header)
 	for _, rp := range s.provisioners {
-		for _, o := range rp.getOutPut() {
-			res = append(res, o)
-		}
+		rp_res = append(rp_res, rp.getOutPut()...)
 	}
-	return res
+
+	sel_res := [][]string{}
+	header = []string{"replica_amount", "timestamp"}
+	sel_res = append(sel_res, header)
+	sel_res = append(sel_res, s.register...)
+
+	return rp_res, sel_res
 }

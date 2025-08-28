@@ -16,6 +16,7 @@ type resourceProvisioner struct {
 	cfg               model.Config
 	replicas          []*replica
 	technique         *technique
+	selector          *selector
 }
 
 func newResourceProvisioner(aid, fid string, cfg model.Config, s *selector) *resourceProvisioner {
@@ -26,6 +27,7 @@ func newResourceProvisioner(aid, fid string, cfg model.Config, s *selector) *res
 		rpID:     aid + "-" + fid,
 		replicas: make([]*replica, 0),
 		cfg:      cfg,
+		selector: s,
 	}
 	rp.technique = newTechnique(rp, cfg.Technique, s)
 	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
@@ -60,6 +62,14 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	godes.AddRunner(replica)
 	rp.replicas = append(rp.replicas, replica)
 	return replica
+}
+
+func (rp *resourceProvisioner) notifyReadyness(timestamp float64) {
+	rp.selector.registerReplicaScaling(1, timestamp)
+}
+
+func (rp *resourceProvisioner) notifyTermination(timestamp float64) {
+	rp.selector.registerReplicaScaling(-1, timestamp)
 }
 
 func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation) {

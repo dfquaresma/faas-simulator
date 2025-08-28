@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strconv"
 
 	"github.com/dfquaresma/faas-simulator/runner"
 	"github.com/spf13/viper"
@@ -24,5 +25,15 @@ func main() {
 	idletimes := viper.GetIntSlice("resourceProvisioner.idletime")
 	forwardLatencies := viper.GetIntSlice("resourceProvisioner.forwardLatency")
 
-	runner.Sim(tracePath, outputPath, techniques, tailLatencyProbs, idletimes, forwardLatencies)
+	skipColdStartStrSlc := viper.GetStringSlice("resourceProvisioner.skipColdStart")
+	skipColdStartOps := make([]bool, len(skipColdStartStrSlc))
+	for i, s := range skipColdStartStrSlc {
+		val, err := strconv.ParseBool(s)
+		if err != nil {
+			panic(err)
+		}
+		skipColdStartOps[i] = val
+	}
+
+	runner.Sim(tracePath, outputPath, techniques, tailLatencyProbs, idletimes, forwardLatencies, skipColdStartOps)
 }

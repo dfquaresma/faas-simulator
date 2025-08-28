@@ -6,4 +6,5 @@ type Config struct {
 	TailLatency     float64
 	TailLatencyProb string
 	Technique       string
+	SkipColdStart   bool
 }

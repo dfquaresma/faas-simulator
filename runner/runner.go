@@ -14,8 +14,7 @@ func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, id
 	start := time.Now()
 	count := 1
 	total := len(forwardLatencies) * len(idletimes) * len(tailLatencyProbs) * len(techniques) * len(skipColdStartOpts)
-
-	io.WriteOutputHeaderRow(outputPath, "replayer-stats.csv", []string{"elapsedTime", "id"})
+	io.WriteOutputHeaderRow(outputPath, "replayer-stats.csv", []string{"elapsedTime", "currentTime", "id"})
 	for _, f := range forwardLatencies {
 		fLatency := float64(f)
 		for _, scs := range skipColdStartOpts {
@@ -24,7 +23,15 @@ func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, id
 					idleTimeFloat := float64(i)
 					for _, t := range techniques {
 						replayerOut := simulate(tracePath, outputPath, p, t, fLatency, idleTimeFloat, count, total, scs)
-						io.WriteOutputByRow(outputPath, "replayer-stats.csv", replayerOut)
+						io.WriteOutputByRow(
+							outputPath,
+							"replayer-stats.csv",
+							[]string{
+								replayerOut[0],
+								time.Now().Format("2006-01-02 15:04:05"),
+								replayerOut[1],
+							},
+						)
 						count++
 					}
 				}

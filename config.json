@@ -3,7 +3,7 @@
   "outputPath": "./results_azure/",
   "resourceProvisioner": {
     "forwardLatency": [1],
-    "skipColdStart": ["false"],
+    "skipColdStart": ["false", "true"],
     "tailLatencyProb": ["p95", "p99"],
     "idletime": [-1, 0, 900],
     "technique": ["Vanilla", "RequestHedgingOpt", "GCI", "RequestHedgingDefault"]

@@ -1,30 +1,41 @@
 {
-    "outputPath": "./",
-    "outputName": "constante-constante_with_tail.csv",
-    "app_id": "generated_app",
-    "func_id": "generated_func",
-    "requests_count": 1000000,
-    "interarrival_distribution": "constant",
-    "latency_distribution": "constant_with_tail",
+  "requests_count": 150000,
+  "interarrival_distribution": [
+    "constant",
+    "constant",
+    "constant",
+    "poisson",
+    "poisson",
+    "poisson"
+  ],
+  "latency_distribution": [
+    "bernoulli",
+    "weibull",
+    "logNormal",
+    "bernoulli",
+    "weibull",
+    "logNormal"
+  ],
+  "outputPath": "./",
     "distributions": {
       "constant": {
         "latency": 5.0
       },
-      "constant_with_tail": {
+      "bernoulli": {
         "latency": 1.0,
         "tailLatency": 10.0,
         "prob": 0.05
       },
       "poisson": {
-        "lambda": 1.0
+        "lambda": 4.0
       },
       "weibull": {
-        "k": 1.0,
+        "k": 0.5,
         "lambda": 5.0
       },
       "logNormal": {
-        "mu": 1.0,
-        "sigma": 5.0
+        "mu": 0,
+        "sigma": 0.25
       }
     }
   }

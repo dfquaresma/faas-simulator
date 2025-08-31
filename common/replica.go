@@ -50,7 +50,7 @@ func (r *replica) process(i *model.Invocation) {
 
 func (r *replica) Run() {
 	r.startTS = godes.GetSystemTime()
-	r.rp.notifyReadyness(godes.GetSystemTime())
+	r.rp.notifyReadyness(r.funcID, godes.GetSystemTime())
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
@@ -64,11 +64,6 @@ func (r *replica) Run() {
 			if r.reqsProcessed == 0 {
 				i.SetAsColdStart()
 				dur = i.GetColdStart()
-			}
-
-			if r.cfg.SkipColdStart {
-				dur = i.GetP999()
-				i.SetDuration(dur)
 			}
 
 			if i.IsTailLatency() {
@@ -116,7 +111,7 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() == 0 {
 			if r.terminatedCond.GetState() {
 				r.setUptimeStats()
-				r.rp.notifyTermination(godes.GetSystemTime())
+				r.rp.notifyTermination(r.funcID, godes.GetSystemTime())
 				break
 			}
 			r.arrivalCond.Set(false)

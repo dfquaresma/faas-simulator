@@ -64,12 +64,12 @@ func (rp *resourceProvisioner) getAvailableReplica() *replica {
 	return replica
 }
 
-func (rp *resourceProvisioner) notifyReadyness(timestamp float64) {
-	rp.selector.registerReplicaScaling(1, timestamp)
+func (rp *resourceProvisioner) notifyReadyness(funcID string, timestamp float64) {
+	rp.selector.registerReplicaScaling(funcID, 1, timestamp)
 }
 
-func (rp *resourceProvisioner) notifyTermination(timestamp float64) {
-	rp.selector.registerReplicaScaling(-1, timestamp)
+func (rp *resourceProvisioner) notifyTermination(funcID string, timestamp float64) {
+	rp.selector.registerReplicaScaling(funcID, -1, timestamp)
 }
 
 func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation) {

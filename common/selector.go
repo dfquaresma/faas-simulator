@@ -7,11 +7,11 @@ import (
 )
 
 type selector struct {
-	provisioners map[string]*resourceProvisioner
-	dataset      *model.Dataset
-	cfg          model.Config
-	register     [][]string
-	replicas     int64
+	provisioners  map[string]*resourceProvisioner
+	dataset       *model.Dataset
+	cfg           model.Config
+	register      [][]string
+	replicasCount int64
 }
 
 func NewSelector(dataset *model.Dataset, cfg model.Config) *selector {
@@ -51,11 +51,11 @@ func (s *selector) terminate() {
 	}
 }
 
-func (s *selector) registerReplicaScaling(amount int64, timestamp float64) {
-	s.replicas += amount
-	replicasStr := strconv.FormatInt(s.replicas, 10)
+func (s *selector) registerReplicaScaling(funcID string, amount int64, timestamp float64) {
+	s.replicasCount += amount
+	replicasCountStr := strconv.FormatInt(s.replicasCount, 10)
 	timestampStr := strconv.FormatFloat(timestamp, 'f', -1, 64)
-	s.register = append(s.register, []string{replicasStr, timestampStr})
+	s.register = append(s.register, []string{funcID, replicasCountStr, timestampStr})
 }
 
 func (s *selector) GetOutPut() ([][]string, [][]string) {
@@ -67,7 +67,7 @@ func (s *selector) GetOutPut() ([][]string, [][]string) {
 	}
 
 	sel_res := [][]string{}
-	header = []string{"replica_amount", "timestamp"}
+	header = []string{"funcID", "replica_amount", "timestamp"}
 	sel_res = append(sel_res, header)
 	sel_res = append(sel_res, s.register...)
 

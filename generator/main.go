@@ -21,8 +21,17 @@ func main() {
 		return
 	}
 
-	interarrival_dist := viper.GetString("interarrival_distribution")
-	latency_dist := viper.GetString("latency_distribution")
+	requests_count := viper.GetInt("requests_count")
+	interarrival_dist := viper.GetStringSlice("interarrival_distribution")
+	latency_dist := viper.GetStringSlice("latency_distribution")
+	outputPath := viper.GetString("outputPath")
+
+	for i, dist := range interarrival_dist {
+		generate(requests_count, dist, latency_dist[i], outputPath)
+	}
+}
+
+func generate(requests_count int, interarrival_dist, latency_dist, outputPath string) {
 	interarrival := newDistribution(interarrival_dist)
 	latency := newDistribution(latency_dist)
 	if interarrival == nil || latency == nil {
@@ -30,10 +39,9 @@ func main() {
 	}
 
 	ts := 0.0
-	generated_app := viper.GetString("app_id")
-	generated_func := viper.GetString("func_id")
-	requests_count := viper.GetInt("requests_count")
-	workload := [][]string{[]string{"app", "func", "end_timestamp", "duration"}}
+	generated_app := interarrival_dist + "-" + latency_dist + "-app"
+	generated_func := interarrival_dist + "-" + latency_dist + "-func"
+	workload := [][]string{{"app", "func", "end_timestamp", "duration"}}
 	for i := 0; i < requests_count; i++ {
 		ts = ts + interarrival.nextValue()
 		duration := latency.nextValue()
@@ -46,10 +54,8 @@ func main() {
 		})
 	}
 
-	outputPath := viper.GetString("outputPath")
-	outputName := viper.GetString("outputName")
+	outputName := "latency_" + latency_dist + "-arrival_" + interarrival_dist + ".csv"
 	io.WriteOutput(outputPath, outputName, workload)
-
 }
 
 type distribution struct {
@@ -70,12 +76,12 @@ func newDistribution(dist string) *distribution {
 			dist:    dist,
 			latency: viper.GetFloat64("distributions.constant.latency"),
 		}
-	case "constant_with_tail":
+	case "bernoulli":
 		return &distribution{
 			dist:         dist,
-			latency:      viper.GetFloat64("distributions.constant_with_tail.latency"),
-			tail_latency: viper.GetFloat64("distributions.constant_with_tail.tailLatency"),
-			prob:         viper.GetFloat64("distributions.constant_with_tail.prob"),
+			latency:      viper.GetFloat64("distributions.bernoulli.latency"),
+			tail_latency: viper.GetFloat64("distributions.bernoulli.tailLatency"),
+			prob:         viper.GetFloat64("distributions.bernoulli.prob"),
 			rng:          rand.New(rand.NewSource(uint64(time.Now().Nanosecond()))),
 		}
 	case "poisson":
@@ -111,7 +117,7 @@ func newDistribution(dist string) *distribution {
 
 func (d *distribution) nextValue() float64 {
 	switch d.dist {
-	case "constant_with_tail":
+	case "bernoulli":
 		latency := d.latency
 		if d.rng.Float64() >= 1-d.prob {
 			latency = d.tail_latency

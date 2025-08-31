@@ -5,98 +5,126 @@ date: "ago, 2025"
 output: pdf_document
 ---
 
-## LOAD FUNCTIONS
-```{r}
+# Load Functions
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 ##require(quantileCI)
 
-load_data <- function(results_path, techs, probs, skip_coldstart, idletimes) {
-  technique <- c()
-  tailLatencyProb <- c()
-  idletime <- c()
-  p50 <- c()
-  p95 <- c()
-  p99 <- c()
-  p999 <- c()
-  p9999 <- c()
-  for (scs in skip_coldstart) {
-    for (t in techs) {
-      for (p in probs) {
-        for (i in idletimes) {
-          fileName = paste(paste(t, i, p, scs, sep = "_"), "invocations.csv", sep="-")
-          results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
-    
-          results_treated <- select(
-            transform(
-              results, 
-              minResponseTime = pmin(responseTime, techniqueResponseTime)
-            ),
-            responseTime,
-            techniqueResponseTime,
-            minResponseTime
-          )
-  
-          results_treated$responseTimeUseful <- ifelse(
-            results_treated$minResponseTime != 0,
-            results_treated$minResponseTime,
-            results_treated$responseTime
-          )
-    
-          technique <- c(technique, t)
-          tailLatencyProb <- c(tailLatencyProb, p)
-          idletime <- c(idletime, i)
-          p50 <- c(p50, quantile(results_treated$responseTimeUseful, probs = 0.5))
-          p95 <- c(p95, quantile(results_treated$responseTimeUseful, probs = 0.95))
-          p99 <- c(p99, quantile(results_treated$responseTimeUseful, probs = 0.99))
-          p999 <- c(p999, quantile(results_treated$responseTimeUseful, probs = 0.999))
-          p9999 <- c(p9999, quantile(results_treated$responseTimeUseful, probs = 0.9999))
-        }
+load_data <- function(results_path, techs, probs, idletimes) {
+  all_invocs <- list()
+  all_replicas <- list()
+  for (t in techs) {
+    for (p in probs) {
+      for (i in idletimes) {
+        scenario = paste(t, i, p, sep = "_")
+        fileName = paste(scenario, "-invocations.csv", sep="")
+        df_invocs = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
+        df_invocs$minResponseTime = pmin(df_invocs$responseTime, df_invocs$techniqueResponseTime)
+        df_invocs$responseTimeToEvaluate = ifelse(
+          df_invocs$minResponseTime != 0,
+          df_invocs$minResponseTime,
+          df_invocs$responseTime
+        )
+        df_invocs$technique = t
+        df_invocs$idletime = i
+        df_invocs$tailLatencyProb = p
+
+        df_invocs <- df_invocs %>%
+          group_by(funcID) %>%
+          mutate(
+            p50  = quantile(responseTimeToEvaluate, probs = 0.50, na.rm = TRUE),
+            p95  = quantile(responseTimeToEvaluate, probs = 0.95, na.rm = TRUE),
+            p99  = quantile(responseTimeToEvaluate, probs = 0.99, na.rm = TRUE),
+            p999 = quantile(responseTimeToEvaluate, probs = 0.999, na.rm = TRUE),
+            p100 = quantile(responseTimeToEvaluate, probs = 1.00, na.rm = TRUE)
+          ) %>%
+          ungroup()
+
+        df_invocs <- df_invocs %>% distinct(funcID, .keep_all = TRUE)
+        all_invocs[[length(all_invocs) + 1]] <- data.frame(
+          funcID          = df_invocs$funcID,
+          technique       = df_invocs$technique,
+          tailLatencyProb = df_invocs$tailLatencyProb,
+          idletime        = df_invocs$idletime,
+          p50             = df_invocs$p50,
+          p95             = df_invocs$p95,
+          p99             = df_invocs$p99,
+          p999            = df_invocs$p999,
+          p100            = df_invocs$p100
+        )
+
+        fileName = paste(scenario, "-replicas.csv", sep="")
+        df_replicas = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
+        df_replicas$technique = t
+        df_replicas$idletime = i
+        df_replicas$tailLatencyProb = p
+        df_replicas$replicasCount = nrow(filter(df_replicas, funcID == df_replicas$funcID))
+        df_replicas <- df_replicas %>%
+          group_by(funcID) %>%
+          mutate(
+            totalUptime = sum(df_replicas$upTime) /1000/60/60,
+            totalBusyTime = sum(df_replicas$busyTime) /1000/60/60,
+          ) %>%
+        ungroup()
+        
+
+        df_replicas <- df_replicas %>% distinct(funcID, .keep_all = TRUE)
+        all_replicas[[length(all_replicas) + 1]] <- data.frame(
+          funcID          = df_replicas$funcID,
+          technique       = df_replicas$technique,
+          tailLatencyProb = df_replicas$tailLatencyProb,
+          idletime        = df_replicas$idletime,
+          totalUptime     = df_replicas$totalUptime,
+          totalBusyTime   = df_replicas$totalBusyTime,
+          replicasCount   = df_replicas$replicasCount
+        )
       }
     }
   }
-
-  df_for_invocations <- data.frame(technique, tailLatencyProb, idletime, p50, p95, p99, p999, p9999)
-
-  uptime <- c()
-  busyTime <- c()
-  replicasCount <- c()
-  for (scs in skip_coldstart) {
-    for (t in techs) {
-      for (p in probs) {
-        for (i in idletimes) {
-          fileName = paste(paste(t, i, p, scs, sep = "_"), "replicas.csv", sep="-")
-          results = read.csv(paste(results_path, t, fileName, sep="/"), header = TRUE)
-          uptime <- c(uptime, sum(results$upTime))
-          busyTime <- c(busyTime, sum(results$busyTime))
-          replicasCount <- c(replicasCount, nrow(results))
-        }
-      }
-    }
-  }
-  df_for_replicas <- data.frame(technique, tailLatencyProb, idletime, uptime, busyTime, replicasCount)
-  return(list(df_for_invocations = df_for_invocations, df_for_replicas = df_for_replicas))
+  df_for_invocs <- parse_idletime_and_probs(do.call(rbind, all_invocs))
+  df_for_replicas <- parse_idletime_and_probs(do.call(rbind, all_replicas))
+  return(list(df_for_invocations = df_for_invocs, df_for_replicas = df_for_replicas))
 }
 
-parse_values <- function(df) {
-  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp95", 95, tailLatencyProb))
-  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp99", 99, tailLatencyProb))
-  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp999", 999, tailLatencyProb))
-  df <- df %>% mutate(tailLatencyProb = ifelse(tailLatencyProb == "tlprobp9999", 9999, tailLatencyProb))
+parse_idletime_and_probs <- function(df) {
+  df$tailLatencyProb = ifelse(df$tailLatencyProb == "tlprobp95", 95, df$tailLatencyProb)
+  df$tailLatencyProb = ifelse(df$tailLatencyProb == "tlprobp99", 99, df$tailLatencyProb)
 
-  df <- df %>% mutate(idletime = ifelse(idletime == "idletime0.0", 0, idletime))
-  df <- df %>% mutate(idletime = ifelse(idletime == "idletime15.0", 15, idletime))
-  df <- df %>% mutate(idletime = ifelse(idletime == "idletimeINF", Inf, idletime))
+  df$idletime = ifelse(df$idletime == "idletime0.0", 0, df$idletime)
+  df$idletime = ifelse(df$idletime == "idletime900.0", 900, df$idletime)
+  df$idletime = ifelse(df$idletime == "idletimeINF", Inf, df$idletime)
 
   return(df)
 }
+```
 
-plot_results <- function(df, metric, y_label, title) {
-  df$idletime_f <- factor(df$idletime, levels = c(0, 15, Inf))
+# Load Data Grouping All Simulation Scenarios
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+#results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
+results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generator"
+techs <- c('RequestHedgingOpt', 'Vanilla', 'GCI', 'RequestHedgingDefault')
+probs <- c('tlprobp95', 'tlprobp99')
+idletimes <- c('idletimeINF', 'idletime0.0', 'idletime900.0')
+
+start_time <- Sys.time()
+data_loaded <- load_data(results_path, techs, probs, idletimes)
+df_for_invocations <- data_loaded$df_for_invocations
+df_for_replicas <- data_loaded$df_for_replicas
+end_time <- Sys.time()
+print(paste("All Azure Simulation Load Time: ", end_time - start_time, sep=""))
+
+rm(data_loaded)
+```
+
+# Load Plot Functions
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+plot_hist_results <- function(df, metric, y_label, title) {
+  df$idletime_f <- factor(df$idletime, levels = c(0, 900, Inf))
   ggplot(df, aes(x=tailLatencyProb, y=metric, color=as.factor(technique), shape=as.factor(technique))) +
     geom_jitter(width = 0.015, height = 0, alpha = 0.8, size = 2.5, stroke = 1) +
-    facet_grid(. ~ factor(idletime, levels = c(0, 15, Inf))) +
+    facet_grid(. ~ factor(idletime_f, levels = c(0, 900, Inf))) +
     labs(x = "tail latency probability", y = y_label, title = title, colour = "technique", shape = "technique") +
     scale_shape_manual(values = c(1, 23, 24, 15)) +
     scale_color_manual(values = c("red", "purple", "blue", "limegreen")) +  # cores mais distintas
@@ -108,7 +136,7 @@ plot_results <- function(df, metric, y_label, title) {
     )
 }
 
-ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "dotted", "dotdash", "dashed"), cols=c(15, 195, 150), img_name=FALSE) {
+plot_ecdf <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "dotted", "dotdash", "dashed"), cols=c(15, 195, 150), img_name=FALSE) {
     vanilla.color <- "limegreen"
     vanilla.p95 <- quantile(data$vanilla, 0.95)
     vanilla.p999 <- quantile(data$vanilla, 0.999)
@@ -198,7 +226,7 @@ ecdf_plot <- function(title, data, xinf, xsup, yinf, ysup, linetype=c("solid", "
     print(p)
 }
 
-boxplot_plot <- function(title, df_a, df_b, df_c, df_d, yrange, outliershape = NA) {
+plot_boxplot <- function(title, df_a, df_b, df_c, df_d, yrange, outliershape = NA) {
   return(ggplot(rbind(df_a, df_b, df_c, df_d), aes(x=scenario, y=responseTime, fill=scenario)) +
   geom_boxplot(outlier.shape = outliershape) +
   scale_fill_manual(values = c("red", "purple", "blue", "limegreen")) +
@@ -212,7 +240,7 @@ boxplot_plot <- function(title, df_a, df_b, df_c, df_d, yrange, outliershape = N
   )
 }
 
-replicas_alive_plot <- function(data, scenario_col = "scenario", title = "Replicas Active") {
+plot_replicas_alive <- function(data, scenario_col = "scenario", title = "Replicas Active") {
   data$time_readable <- as.POSIXct(data$timestamp, origin = "2021-01-31", tz = "UTC")
   data[[scenario_col]] <- factor(
     data[[scenario_col]],
@@ -270,76 +298,256 @@ plot_requests_workload <- function(data, bin_size = "10 min", title = "Requests 
 }
 ```
 
-## LOAD DATA RESUMING ALL SIMULATION SCENARIOS
-```{r}
-results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generator"
-#results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
-techs <- c('GCI', 'Vanilla', 'RequestHedgingDefault', 'RequestHedgingOpt')
-probs <- c('tlprobp95', 'tlprobp99')
-skipColdStarts <- c('skipColdStarttrue', 'skipColdStartfalse')
-idletimes <- c('idletimeINF', 'idletime0.0', 'idletime15.0')
-
-data_loaded <- load_data(results_path, techs, probs, skipColdStarts, idletimes)
-df_for_invocations <- data_loaded$df_for_invocations
-df_for_replicas <- data_loaded$df_for_replicas
-
-df_for_invocations_bkp = df_for_invocations
-df_for_replicas_bkp = df_for_replicas
-df_for_invocations <- parse_values(df_for_invocations)
-df_for_replicas <- parse_values(df_for_replicas)
-
-invoc_data = filter(df_for_invocations, technique != "")
-repl_data = filter(df_for_replicas, technique != "")
-```
-
-# INVOCATIONS AND REPLICAS METRICS PLOT
+# Plot Hist For Invocations/Replicas For All Azure Scenarios
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-plot_results(invoc_data, invoc_data$p50, "response time (ms)", "50th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p95, "response time (ms)", "95th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p99, "response time (ms)", "99th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p999, "response time (ms)", "999th of invocations' response time for each idletime")
-plot_results(invoc_data, invoc_data$p9999, "response time (ms)", "9999th of invocations' response time for each idletime")
+functions_to_plot <- c(
+  "155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534", # 535667 -> 535667
+  "8ef9c2c907e9cd5fb4b5cb3bfbebca6d9a01bb1f65a0f476e3914cae25bd2aae", # 212755 -> 161085 (had zero duration entries)
+  "cc5bb2108cc7daf53f9728ad21f661a8ef9c8b36284bacfcb712e2be87eef842", # 142856 -> 142856
+  "4753d9ffc8a362eadfb27498581969561c0ddbec7257759dbcb9936e506aff82", # 124143 -> 124143
+  "89d488538f940c98367ff572230106d1089868bdd379d9e2b9755b679dc186d2", # 76093 -> 76093
+  "bd5be891d0d10fbc3c59215d5f8159ea496433bc41adba7d8d10ea21d35c3e3a", # 116130 -> 73464 (had zero duration entries)
+  "30aa434528bc68ee07745ee7be3a0bdb33d58961fdc8460ce5b5b46b4def96e8", # 71759 -> 71759
+  "b89efb5e9d1b7e5900ef441b098d4c8b01600af5e673a9f9d607b3598f0fe548", # 63506 -> 63506
+  "8e5f533dbf1092f56ac6c7542ef3bdec4661bd442c9b5e7537fabc7b8c03f5a8", # 53263 -> 53263
+  "c098bb74acb70a0ea1bce98a7090169f3be59a0758389a403d77592aa56ce596", # 41333 -> 41333
+  "eefb3a7b86d12c2676276a5dde28099ef6f546a60e5b78e0a1c2b7221baf154d"  # 41333 -> 3107 (had too many zero duration entries)
+)
+  
+titles <- c(
+  "func w/ suffix 534",
+  "func w/ suffix aae", 
+  "func w/ suffix 842",
+  "func w/ suffix f82",
+  "func w/ suffix 6d2",
+  "func w/ suffix e3a", 
+  "func w/ suffix 6e8",
+  "func w/ suffix 548",
+  "func w/ suffix 5a8",
+  "func w/ suffix 596",
+  "func w/ suffix 54d"
+)
 
-plot_results(repl_data, repl_data$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime")
-plot_results(repl_data[repl_data$idletime != Inf, ], repl_data[repl_data$idletime != Inf, ]$uptime/1000/60/60, "total uptime (hour)", "Total replicas UpTime for each idletime (excluding Inf)")
-plot_results(repl_data, repl_data$busyTime/1000/60/60, "total busy-time (hour)", "Total replicas BusyTime for each idletime")
-plot_results(repl_data, repl_data$replicasCount, "number of replicas", "Total number of replicas created for each idletime")
+selected_func = functions_to_plot[11]
+
+invocs_to_plot = filter(df_for_invocations, funcID == selected_func)
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p95,
+  "response time (ms)", "95th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p95,
+  "response time (ms)", "95th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p99,
+  "response time (ms)", "99th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p99,
+  "response time (ms)", "999th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p999,
+  "response time (ms)", "999th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p999,
+  "response time (ms)", "999th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+replicas_to_plot = filter(df_for_replicas, funcID == selected_func)
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalUptime,
+  "total uptime (hour)", "Total replicas TotalUpTime for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != Inf, ],
+  replicas_to_plot[replicas_to_plot$idletime != Inf, ]$totalUptime,
+  "total uptime (hour)", "Total replicas TotalUpTime for each idletime (excluding idletime Inf)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalBusyTime,
+  "total busy-time (hour)", "Total replicas TotalBusyTime for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$totalBusyTime,
+  "total busy-time (hour)", "Total replicas TotalBusyTime for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalBusyTime / replicas_to_plot$totalUptime,
+  "total busy-time (hour)", "Total replicas Efficiency for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$totalBusyTime / replicas_to_plot[replicas_to_plot$idletime != Inf, ]$totalUptime,
+  "total busy-time (hour)", "Total replicas Efficiency for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$replicasCount,
+  "number of replicas", "Total number of replicas created for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$replicasCount,
+  "number of replicas", "Total number of replicas created for each idletime (excluding idletime zero)"
+)
 ```
 
-## LOAD DATA FOR SPECIFIC SCENARIO
-```{r}
-results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_azure"
-invoc_file = "_idletime0.0_tlprobp95_skipColdStarttrue-invocations.csv"
-repl_file = "_idletime0.0_tlprobp95_skipColdStarttrue-replicas.csv"
-sel_file = "_idletime0.0_tlprobp95_skipColdStarttrue-selector.csv"
+# Plot Hist For Invocations/Replicas For All Azure Scenarios
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+functions_to_plot <- c(
+  "constant-bernoulli-func",
+  "poisson-bernoulli-func",
+  "constant-weibull-func",
+  "poisson-weibull-func",
+  "constant-logNormal-func",
+  "poisson-logNormal-func"
+)
+  
+titles <- c(
+  "func constant-bernoulli",
+  "func poisson-bernoulli",
+  "func constant-weibull",
+  "func poisson-weibull",
+  "func constant-logNormal",
+  "func poisson-logNormal"
+)
 
-technique = "GCI"
-gci_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
-gci_invoc <- select(transform(gci_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-gci_invoc$responseTimeUseful <- ifelse(gci_invoc$minResponseTime != 0, gci_invoc$minResponseTime, gci_invoc$responseTime)
-gci_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
-gci_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+selected_func = functions_to_plot[4]
+
+invocs_to_plot = filter(df_for_invocations, funcID == selected_func)
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p95,
+  "response time (ms)", "95th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p95,
+  "response time (ms)", "95th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p99,
+  "response time (ms)", "99th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p99,
+  "response time (ms)", "999th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  invocs_to_plot,
+  invocs_to_plot$p999,
+  "response time (ms)", "999th of invocations' response time for each idletime"
+)
+plot_hist_results(
+  invocs_to_plot[invocs_to_plot$idletime != 0, ],
+  invocs_to_plot[invocs_to_plot$idletime != 0, ]$p999,
+  "response time (ms)", "999th of invocations' response time for each idletime (excluding idletime zero)"
+)
+
+replicas_to_plot = filter(df_for_replicas, funcID == selected_func)
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalUptime,
+  "total uptime (hour)", "Total replicas TotalUpTime for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != Inf, ],
+  replicas_to_plot[replicas_to_plot$idletime != Inf, ]$totalUptime,
+  "total uptime (hour)", "Total replicas TotalUpTime for each idletime (excluding idletime Inf)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalBusyTime,
+  "total busy-time (hour)", "Total replicas TotalBusyTime for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$totalBusyTime,
+  "total busy-time (hour)", "Total replicas TotalBusyTime for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$totalBusyTime / replicas_to_plot$totalUptime,
+  "total busy-time (hour)", "Total replicas Efficiency for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$totalBusyTime / replicas_to_plot[replicas_to_plot$idletime != Inf, ]$totalUptime,
+  "total busy-time (hour)", "Total replicas Efficiency for each idletime (excluding idletime zero)"
+)
+
+plot_hist_results(
+  replicas_to_plot,
+  replicas_to_plot$replicasCount,
+  "number of replicas", "Total number of replicas created for each idletime"
+)
+plot_hist_results(
+  replicas_to_plot[replicas_to_plot$idletime != 0, ],
+  replicas_to_plot[replicas_to_plot$idletime != 0, ]$replicasCount,
+  "number of replicas", "Total number of replicas created for each idletime (excluding idletime zero)"
+)
+```
+
+
+
+# Load Data For Specific Scenario
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+results_path <- "/Users/davidquaresma/Desktop/repos/faas-simulator/results_generator"
+invoc_file = "_idletime0.0_tlprobp95-invocations.csv"
+repl_file = "_idletime0.0_tlprobp95-replicas.csv"
+sel_file = "_idletime0.0_tlprobp95-selector.csv"
+
+technique = "Vanilla"
+vanilla_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+vanilla_invoc <- select(transform(vanilla_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+vanilla_invoc$responseTimeToEvaluate <- ifelse(vanilla_invoc$minResponseTime != 0, vanilla_invoc$minResponseTime, vanilla_invoc$responseTime)
+vanilla_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+vanilla_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
 
 technique = "RequestHedgingDefault"
 rh_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
 rh_invoc <- select(transform(rh_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-rh_invoc$responseTimeUseful <- ifelse(rh_invoc$minResponseTime != 0, rh_invoc$minResponseTime, rh_invoc$responseTime)
+rh_invoc$responseTimeToEvaluate <- ifelse(rh_invoc$minResponseTime != 0, rh_invoc$minResponseTime, rh_invoc$responseTime)
 rh_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
 rh_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
 
 technique = "RequestHedgingOpt"
 rho_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
 rho_invoc <- select(transform(rho_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-rho_invoc$responseTimeUseful <- ifelse(rho_invoc$minResponseTime != 0, rho_invoc$minResponseTime, rho_invoc$responseTime)
+rho_invoc$responseTimeToEvaluate <- ifelse(rho_invoc$minResponseTime != 0, rho_invoc$minResponseTime, rho_invoc$responseTime)
 rho_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
 rho_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
 
-technique = "Vanilla"
-vanilla_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
-vanilla_invoc <- select(transform(vanilla_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
-vanilla_invoc$responseTimeUseful <- ifelse(vanilla_invoc$minResponseTime != 0, vanilla_invoc$minResponseTime, vanilla_invoc$responseTime)
-vanilla_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
-vanilla_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
+technique = "GCI"
+gci_invoc = read.csv(paste(results_path, "/", technique, "/", technique, invoc_file, sep=""))
+gci_invoc <- select(transform(gci_invoc, minResponseTime = pmin(responseTime, techniqueResponseTime)), responseTime, techniqueResponseTime, minResponseTime)
+gci_invoc$responseTimeToEvaluate <- ifelse(gci_invoc$minResponseTime != 0, gci_invoc$minResponseTime, gci_invoc$responseTime)
+gci_repl = read.csv(paste(results_path, "/", technique, "/", technique, repl_file, sep=""))
+gci_sel = read.csv(paste(results_path, "/", technique, "/", technique, sel_file, sep=""))
 
 azure_input = read.csv(paste("/Users/davidquaresma/Desktop/repos/faas-simulator/azure/", "AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv", sep=""))
 
@@ -352,34 +560,34 @@ rm(technique)
 
 # ECDF of Latency, Replicas Alive Through Time, Workload
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-ecdf_plot("Comparison of ECDF Curves of Experiments", data.frame(
-  vanilla = vanilla_invoc$responseTimeUseful,
-  rh = rh_invoc$responseTimeUseful,
-  rho = rho_invoc$responseTimeUseful,
-  gci = gci_invoc$responseTimeUseful
+plot_ecdf("Comparison of ECDF Curves of Experiments", data.frame(
+  vanilla = vanilla_invoc$responseTimeToEvaluate,
+  rh = rh_invoc$responseTimeToEvaluate,
+  rho = rho_invoc$responseTimeToEvaluate,
+  gci = gci_invoc$responseTimeToEvaluate
 ), 0, 25, 0, 1, img_name="results-ecdf.png")
 
-replicas_alive_plot(
+plot_replicas_alive(
   bind_rows(vanilla = vanilla_sel, rh = rh_sel, rho = rho_sel, gci = gci_sel, .id = "scenario"),
   scenario_col = "scenario",
   title = "Replicas Active: idletime15.0, tlprobp95"
 )
-replicas_alive_plot(
+plot_replicas_alive(
   bind_rows(gci = gci_sel, .id = "scenario"),
   scenario_col = "scenario",
   title = "Replicas Active: idletime15.0, tlprobp95"
 )
-replicas_alive_plot(
+plot_replicas_alive(
   bind_rows(rh = rh_sel, rho = rho_sel, .id = "scenario"),
   scenario_col = "scenario",
   title = "Replicas Active: idletime15.0, tlprobp95"
 )
-replicas_alive_plot(
+plot_replicas_alive(
   bind_rows(rho = rho_sel, .id = "scenario"),
   scenario_col = "scenario",
   title = "Replicas Active: idletime15.0, tlprobp95"
 )
-replicas_alive_plot(
+plot_replicas_alive(
   bind_rows(vanilla = vanilla_sel, .id = "scenario"),
   scenario_col = "scenario",
   title = "Replicas Active: idletime15.0, tlprobp95"
@@ -391,18 +599,24 @@ azure_input$target_timestamp = azure_input$end_timestamp
 plot_requests_workload(azure_input, title="Invocations Ending At")
 ```
 
-# BOXPLOT VISUAL TEST
+# Boxplot Visual Test
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-df_gci_to_boxplot = data.frame(scenario = "gci", responseTime = gci$responseTimeUseful)
-df_rh_to_boxplot = data.frame(scenario = "rh", responseTime = rh$responseTimeUseful)
-df_rho_to_boxplot = data.frame(scenario = "rho", responseTime = rho$responseTimeUseful)
-df_van_to_boxplot = data.frame(scenario = "vanilla", responseTime = vanilla$responseTimeUseful)
+df_gci_to_boxplot = data.frame(scenario = "gci", responseTime = gci$responseTimeToEvaluate)
+df_rh_to_boxplot = data.frame(scenario = "rh", responseTime = rh$responseTimeToEvaluate)
+df_rho_to_boxplot = data.frame(scenario = "rho", responseTime = rho$responseTimeToEvaluate)
+df_van_to_boxplot = data.frame(scenario = "vanilla", responseTime = vanilla$responseTimeToEvaluate)
 boxplot_plot("Boxplot for response time", df_gci_to_boxplot, df_rh_to_boxplot, df_rho_to_boxplot, df_van_to_boxplot, c(0, 5))
 ```
 
-# PLAYGROUND TO EXPLORING FUNCS
+# Playground For Exploring Funcs
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-azure_input = read.csv(paste("/Users/davidquaresma/Desktop/repos/faas-simulator/azure/", "AzureFunctionsInvocationTraceForTwoWeeksJan2021.csv", sep=""))
+azure_input = read.csv(paste("/Users/davidquaresma/Desktop/repos/faas-simulator/azure/", "AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv", sep=""))
+
+tmp <- azure_input %>%
+  group_by(func) %>%
+  mutate(jaja = quantile(duration, probs = 0.5, na.rm = TRUE)) %>%
+  ungroup()
+
 
 # check app functions rows
 length(unique(azure_input$func))
@@ -417,3 +631,118 @@ azure_input_filter = filter(azure_input, app == "a594f92f84072b4cd031fe5283d1781
 length(unique(azure_input_filter$func))
 azure_input_filter %>% group_by(func) %>% summarise(count = n())%>% arrange(desc(count))
 ```
+
+# Playground Plotting Funcs
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Define your function IDs for easier reference
+func_ids <- c(
+  "func1" = "89d488538f940c98367ff572230106d1089868bdd379d9e2b9755b679dc186d2",
+  "func2" = "b89efb5e9d1b7e5900ef441b098d4c8b01600af5e673a9f9d607b3598f0fe548",
+  "func3" = "c098bb74acb70a0ea1bce98a7090169f3be59a0758389a403d77592aa56ce596",
+  "func4" = "1bfbf6e1f849d22a0ece669507eb055525edf6929f273b999d865d52ea086a82",
+  "func5" = "1cf618f9ee318fecbc31aa059ded8328581b9a9b092f1069b9f7679b6f89e52e",
+  "func6" = "e5298aafdbabecd1465ab0eeb24d7633ac7de0284f7ee075209b119c297a3622"
+)
+
+# Method 1: Box Plot Comparison
+# Prepare data for plotting
+duration_data <- data.frame()
+for(i in 1:length(func_ids)) {
+  func_data <- filter(azure_input, func == func_ids[i])
+  if(nrow(func_data) > 0) {
+    temp_df <- data.frame(
+      Function = names(func_ids)[i],
+      Duration = func_data$duration
+    )
+    duration_data <- rbind(duration_data, temp_df)
+  }
+}
+
+# Create box plot
+p1 <- ggplot(duration_data, aes(x = Function, y = Duration, fill = Function)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.2, alpha = 0.6) +
+  labs(title = "Duration Comparison Across Functions",
+       subtitle = "Box plots showing distribution of execution times",
+       x = "Function",
+       y = "Duration") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+print(p1)
+
+# Method 2: Violin Plot (shows distribution shape)
+p2 <- ggplot(duration_data, aes(x = Function, y = Duration, fill = Function)) +
+  geom_violin() +
+  geom_boxplot(width = 0.1, alpha = 0.8) +
+  labs(title = "Duration Distribution Comparison",
+       subtitle = "Violin plots showing probability density of execution times",
+       x = "Function",
+       y = "Duration") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+print(p2)
+
+# Method 3: Summary Statistics Comparison
+summary_stats <- duration_data %>%
+  group_by(Function) %>%
+  summarise(
+    Count = n(),
+    Mean = mean(Duration, na.rm = TRUE),
+    Median = median(Duration, na.rm = TRUE),
+    SD = sd(Duration, na.rm = TRUE),
+    Min = min(Duration, na.rm = TRUE),
+    Max = max(Duration, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+print("Summary Statistics:")
+print(summary_stats)
+
+# Method 4: Bar plot of mean durations with error bars
+p3 <- ggplot(summary_stats, aes(x = Function, y = Mean, fill = Function)) +
+  geom_col() +
+  geom_errorbar(aes(ymin = Mean - SD, ymax = Mean + SD), 
+                width = 0.2, alpha = 0.7) +
+  labs(title = "Mean Duration Comparison",
+       subtitle = "Error bars show ± 1 standard deviation",
+       x = "Function",
+       y = "Mean Duration") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+print(p3)
+
+# Method 5: Density plots overlaid
+p4 <- ggplot(duration_data, aes(x = Duration, fill = Function)) +
+  geom_density(alpha = 0.6) +
+  labs(title = "Duration Density Comparison",
+       subtitle = "Overlapping density curves for each function",
+       x = "Duration",
+       y = "Density") +
+  theme_minimal() +
+  facet_wrap(~Function, scales = "free")
+
+print(p4)
+
+# Alternative: Single plot with all densities
+p5 <- ggplot(duration_data, aes(x = Duration, color = Function)) +
+  geom_density(size = 1.2) +
+  labs(title = "Duration Density Comparison - Overlay",
+       subtitle = "All function densities on same plot",
+       x = "Duration",
+       y = "Density") +
+  theme_minimal()
+
+print(p5)
+```
+

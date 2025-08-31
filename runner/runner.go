@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/dfquaresma/faas-simulator/common"
@@ -10,49 +9,43 @@ import (
 	"github.com/dfquaresma/faas-simulator/model"
 )
 
-func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, idletimes, forwardLatencies []int, skipColdStartOpts []bool) {
+func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, idletimes []int, forwardLatencies int) {
 	start := time.Now()
 	count := 1
-	total := len(forwardLatencies) * len(idletimes) * len(tailLatencyProbs) * len(techniques) * len(skipColdStartOpts)
+	fLatency := float64(forwardLatencies)
+	total := forwardLatencies * len(idletimes) * len(tailLatencyProbs) * len(techniques)
 	io.WriteOutputHeaderRow(outputPath, "replayer-stats.csv", []string{"elapsedTime", "currentTime", "id"})
-	for _, f := range forwardLatencies {
-		fLatency := float64(f)
-		for _, scs := range skipColdStartOpts {
-			for _, p := range tailLatencyProbs {
-				for _, i := range idletimes {
-					idleTimeFloat := float64(i)
-					for _, t := range techniques {
-						replayerOut := simulate(tracePath, outputPath, p, t, fLatency, idleTimeFloat, count, total, scs)
-						io.WriteOutputByRow(
-							outputPath,
-							"replayer-stats.csv",
-							[]string{
-								replayerOut[0],
-								time.Now().Format("2006-01-02 15:04:05"),
-								replayerOut[1],
-							},
-						)
-						count++
-					}
-				}
+	for _, p := range tailLatencyProbs {
+		for _, i := range idletimes {
+			idleTimeFloat := float64(i)
+			for _, t := range techniques {
+				replayerOut := simulate(tracePath, outputPath, p, t, fLatency, idleTimeFloat, count, total)
+				io.WriteOutputByRow(
+					outputPath,
+					"replayer-stats.csv",
+					[]string{
+						replayerOut[0],
+						time.Now().Format("2006-01-02 15:04:05"),
+						replayerOut[1],
+					},
+				)
+				count++
 			}
 		}
 	}
 	fmt.Printf("Total Simulation Time: %s", time.Since(start))
 }
 
-func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, count, total int, skipColdStart bool) []string {
+func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, count, total int) []string {
 	cfg := model.Config{
 		ForwardLatency:  fLatency,
 		Idletime:        idleTimeFloat,
 		TailLatencyProb: prob,
 		Technique:       technique,
-		SkipColdStart:   skipColdStart,
 	}
 	fmt.Printf(
-		"VALUES FOR CFG:\nForwardLatency: %f\nSkipColdStart: %t\nIdletime: %f\nTailLatencyProb: %s\nTechnique: %s\n\n",
+		"VALUES FOR CFG:\nForwardLatency: %f\nIdletime: %f\nTailLatencyProb: %s\nTechnique: %s\n\n",
 		cfg.ForwardLatency,
-		cfg.SkipColdStart,
 		cfg.Idletime,
 		cfg.TailLatencyProb,
 		cfg.Technique,
@@ -68,7 +61,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	if idleTimeFloat >= 0 {
 		idleDesc = fmt.Sprintf("%.1f", idleTimeFloat)
 	}
-	simulationName := fmt.Sprintf("%s_idletime%s_tlprob%s_skipColdStart%s", technique, idleDesc, prob, strconv.FormatBool(skipColdStart))
+	simulationName := fmt.Sprintf("%s_idletime%s_tlprob%s", technique, idleDesc, prob)
 	fmt.Printf("SimulationName: %s\n", simulationName)
 	fmt.Printf("OutputPath: %s\n\n", outputPath)
 

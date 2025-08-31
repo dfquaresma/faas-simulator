@@ -1,9 +1,8 @@
 {
   "tracePath": "./azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
   "outputPath": "./results_azure/",
+  "forwardLatency": 1,
   "resourceProvisioner": {
-    "forwardLatency": [1],
-    "skipColdStart": ["false", "true"],
     "tailLatencyProb": ["p95", "p99"],
     "idletime": [-1, 0, 900],
     "technique": ["Vanilla", "RequestHedgingOpt", "GCI", "RequestHedgingDefault"]

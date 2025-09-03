@@ -1,6 +1,6 @@
 {
   "tracePath": "./azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
-  "outputPath": "./results_azure/",
+  "outputPath": "./results_azure_TEST/",
   "forwardLatency": 1,
   "resourceProvisioner": {
     "tailLatencyProb": ["p95", "p99"],

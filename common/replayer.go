@@ -13,19 +13,19 @@ import (
 type replayer struct {
 	*godes.Runner
 	dataset     *model.Dataset
-	selector    *selector
+	router      *router
 	id          string
 	desc        string
 	elapsedTime time.Duration
 }
 
-func NewReplayer(dataset *model.Dataset, selector *selector, id, desc string) *replayer {
+func NewReplayer(dataset *model.Dataset, router *router, id, desc string) *replayer {
 	return &replayer{
-		Runner:   &godes.Runner{},
-		dataset:  dataset,
-		selector: selector,
-		id:       id,
-		desc:     desc,
+		Runner:  &godes.Runner{},
+		dataset: dataset,
+		router:  router,
+		id:      id,
+		desc:    desc,
 	}
 }
 
@@ -56,13 +56,13 @@ func (re *replayer) Run() {
 		godes.Advance(currStartTs - previousTs)
 		previousTs = currStartTs
 		i.SetForwardedTs(godes.GetSystemTime())
-		re.selector.forward(i)
+		re.router.forward(i)
 		progress += 1
 		if progress%barjump == 0 {
 			bar.Add(barjump)
 		}
 	}
-	re.selector.terminate()
+	re.router.terminate()
 	godes.WaitUntilDone()
 	godes.Clear()
 

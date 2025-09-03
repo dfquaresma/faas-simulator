@@ -14,7 +14,7 @@ type replica struct {
 	terminatedCond *godes.BooleanControl
 	isBusy         *godes.BooleanControl
 	arrivalQueue   *godes.FIFOQueue
-	rp             *resourceProvisioner
+	provisioner    *provisioner
 	replicaID      string
 	appID          string
 	funcID         string
@@ -27,14 +27,14 @@ type replica struct {
 	reqsProcessed  int
 }
 
-func newReplica(rp *resourceProvisioner, rid, aid, fid string, cfg model.Config) *replica {
+func newReplica(p *provisioner, rid, aid, fid string, cfg model.Config) *replica {
 	return &replica{
 		Runner:         &godes.Runner{},
 		arrivalCond:    godes.NewBooleanControl(),
 		terminatedCond: godes.NewBooleanControl(),
 		isBusy:         godes.NewBooleanControl(),
 		arrivalQueue:   godes.NewFIFOQueue(rid),
-		rp:             rp,
+		provisioner:    p,
 		replicaID:      rid,
 		appID:          aid,
 		funcID:         fid,
@@ -50,7 +50,7 @@ func (r *replica) process(i *model.Invocation) {
 
 func (r *replica) Run() {
 	r.startTS = godes.GetSystemTime()
-	r.rp.notifyReadyness(r.funcID, godes.GetSystemTime())
+	r.provisioner.notifyReadyness(r.funcID, godes.GetSystemTime())
 	for {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
@@ -73,7 +73,7 @@ func (r *replica) Run() {
 				switch r.cfg.Technique {
 				case "GCI":
 					if !i.IsColdStart() {
-						r.rp.warnReqLatency(i)
+						r.provisioner.warnReqLatency(i)
 						godes.Advance(tailLatencyThreshold)
 						r.busyTime += tailLatencyThreshold
 						r.lastWorkTS = godes.GetSystemTime()
@@ -84,7 +84,7 @@ func (r *replica) Run() {
 						}
 
 						r.isBusy.Set(false)
-						r.rp.setAvailable(r)
+						r.provisioner.setAvailable(r)
 						continue
 					}
 
@@ -92,7 +92,7 @@ func (r *replica) Run() {
 					if !i.IsCopy() {
 						godes.Advance(tailLatencyThreshold)
 						r.busyTime += tailLatencyThreshold
-						r.rp.warnReqLatency(i)
+						r.provisioner.warnReqLatency(i)
 					}
 				}
 			}
@@ -104,19 +104,19 @@ func (r *replica) Run() {
 			r.lastWorkTS = godes.GetSystemTime()
 			i.AddProcessedTs(r.lastWorkTS)
 
-			r.rp.response(i)
+			r.provisioner.response(i)
 			r.reqsProcessed += 1
 		}
 
 		if r.arrivalQueue.Len() == 0 {
 			if r.terminatedCond.GetState() {
 				r.setUptimeStats()
-				r.rp.notifyTermination(r.funcID, godes.GetSystemTime())
+				r.provisioner.notifyTermination(r.funcID, godes.GetSystemTime())
 				break
 			}
 			r.arrivalCond.Set(false)
 			r.isBusy.Set(false)
-			r.rp.setAvailable(r)
+			r.provisioner.setAvailable(r)
 		}
 	}
 }
@@ -137,7 +137,7 @@ func (r *replica) terminate() {
 func (r *replica) getOutPut() []string {
 	return []string{
 		r.replicaID,
-		r.rp.rpID,
+		r.provisioner.rpID,
 		r.appID,
 		r.funcID,
 		strconv.FormatFloat(r.busyTime, 'f', -1, 64),

@@ -7,7 +7,7 @@ import (
 	"github.com/dfquaresma/faas-simulator/model"
 )
 
-type resourceProvisioner struct {
+type provisioner struct {
 	*godes.Runner
 	availableReplicas *godes.LIFOQueue
 	appID             string
@@ -16,75 +16,75 @@ type resourceProvisioner struct {
 	cfg               model.Config
 	replicas          []*replica
 	technique         *technique
-	selector          *selector
+	router            *router
 }
 
-func newResourceProvisioner(aid, fid string, cfg model.Config, s *selector) *resourceProvisioner {
-	rp := &resourceProvisioner{
+func newProvisioner(aid, fid string, cfg model.Config, r *router) *provisioner {
+	p := &provisioner{
 		Runner:   &godes.Runner{},
 		appID:    aid,
 		funcID:   fid,
 		rpID:     aid + "-" + fid,
 		replicas: make([]*replica, 0),
 		cfg:      cfg,
-		selector: s,
+		router:   r,
 	}
-	rp.technique = newTechnique(rp, cfg.Technique, s)
-	rp.availableReplicas = godes.NewLIFOQueue(rp.rpID)
+	p.technique = newTechnique(p, cfg.Technique, r)
+	p.availableReplicas = godes.NewLIFOQueue(p.rpID)
 
-	return rp
+	return p
 }
 
-func (rp *resourceProvisioner) forward(i *model.Invocation) {
-	rp.technique.forward(i)
+func (p *provisioner) forward(i *model.Invocation) {
+	p.technique.forward(i)
 }
 
-func (rp *resourceProvisioner) response(i *model.Invocation) {
-	rp.technique.processResponse(i)
+func (p *provisioner) response(i *model.Invocation) {
+	p.technique.processResponse(i)
 }
 
-func (rp *resourceProvisioner) setAvailable(r *replica) {
-	rp.availableReplicas.Place(r)
+func (p *provisioner) setAvailable(r *replica) {
+	p.availableReplicas.Place(r)
 }
 
-func (rp *resourceProvisioner) getAvailableReplica() *replica {
-	for rp.availableReplicas.Len() > 0 {
-		r := rp.availableReplicas.Get().(*replica)
+func (p *provisioner) getAvailableReplica() *replica {
+	for p.availableReplicas.Len() > 0 {
+		r := p.availableReplicas.Get().(*replica)
 		if r.terminatedCond.GetState() {
 			continue
 		}
-		if rp.cfg.Idletime < 0 || rp.cfg.Idletime > godes.GetSystemTime()-r.lastWorkTS {
+		if p.cfg.Idletime < 0 || p.cfg.Idletime > godes.GetSystemTime()-r.lastWorkTS {
 			return r
 		}
 		r.terminate()
 	}
-	replica := newReplica(rp, time.Now().String(), rp.appID, rp.funcID, rp.cfg)
+	replica := newReplica(p, time.Now().String(), p.appID, p.funcID, p.cfg)
 	godes.AddRunner(replica)
-	rp.replicas = append(rp.replicas, replica)
+	p.replicas = append(p.replicas, replica)
 	return replica
 }
 
-func (rp *resourceProvisioner) notifyReadyness(funcID string, timestamp float64) {
-	rp.selector.registerReplicaScaling(funcID, 1, timestamp)
+func (p *provisioner) notifyReadyness(funcID string, timestamp float64) {
+	p.router.registerReplicaScaling(funcID, 1, timestamp)
 }
 
-func (rp *resourceProvisioner) notifyTermination(funcID string, timestamp float64) {
-	rp.selector.registerReplicaScaling(funcID, -1, timestamp)
+func (p *provisioner) notifyTermination(funcID string, timestamp float64) {
+	p.router.registerReplicaScaling(funcID, -1, timestamp)
 }
 
-func (rp *resourceProvisioner) warnReqLatency(i *model.Invocation) {
-	rp.technique.processWarning(i)
+func (p *provisioner) warnReqLatency(i *model.Invocation) {
+	p.technique.processWarning(i)
 }
 
-func (rp *resourceProvisioner) terminate() {
-	for _, r := range rp.replicas {
+func (p *provisioner) terminate() {
+	for _, r := range p.replicas {
 		r.terminate()
 	}
 }
 
-func (rp *resourceProvisioner) getOutPut() [][]string {
+func (p *provisioner) getOutPut() [][]string {
 	res := [][]string{}
-	for _, r := range rp.replicas {
+	for _, r := range p.replicas {
 		res = append(res, r.getOutPut())
 	}
 	return res

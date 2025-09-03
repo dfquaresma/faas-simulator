@@ -6,70 +6,70 @@ import (
 	"github.com/dfquaresma/faas-simulator/model"
 )
 
-type selector struct {
-	provisioners  map[string]*resourceProvisioner
+type router struct {
+	provisioners  map[string]*provisioner
 	dataset       *model.Dataset
 	cfg           model.Config
 	register      [][]string
 	replicasCount int64
 }
 
-func NewSelector(dataset *model.Dataset, cfg model.Config) *selector {
-	return &selector{
-		provisioners: make(map[string]*resourceProvisioner),
+func NewRouter(dataset *model.Dataset, cfg model.Config) *router {
+	return &router{
+		provisioners: make(map[string]*provisioner),
 		dataset:      dataset,
 		cfg:          cfg,
 		register:     [][]string{},
 	}
 }
 
-func (s *selector) getDataSet() *model.Dataset {
-	return s.dataset
+func (r *router) getDataSet() *model.Dataset {
+	return r.dataset
 }
 
-func (s *selector) getProvisioner(i *model.Invocation) *resourceProvisioner {
-	rp := s.provisioners[i.GetAppID()+i.GetFuncID()]
+func (r *router) getProvisioner(i *model.Invocation) *provisioner {
+	rp := r.provisioners[i.GetAppID()+i.GetFuncID()]
 	if rp == nil {
-		rp = s.newProvisioner(i.GetAppID(), i.GetFuncID())
+		rp = r.newProvisioner(i.GetAppID(), i.GetFuncID())
 	}
 	return rp
 }
 
-func (s *selector) newProvisioner(aid, fid string) *resourceProvisioner {
-	rp := newResourceProvisioner(aid, fid, s.cfg, s)
-	s.provisioners[aid+fid] = rp
+func (r *router) newProvisioner(aid, fid string) *provisioner {
+	rp := newProvisioner(aid, fid, r.cfg, r)
+	r.provisioners[aid+fid] = rp
 	return rp
 }
 
-func (s *selector) forward(i *model.Invocation) {
-	s.getProvisioner(i).forward(i)
+func (r *router) forward(i *model.Invocation) {
+	r.getProvisioner(i).forward(i)
 }
 
-func (s *selector) terminate() {
-	for _, rp := range s.provisioners {
-		rp.terminate()
+func (r *router) terminate() {
+	for _, p := range r.provisioners {
+		p.terminate()
 	}
 }
 
-func (s *selector) registerReplicaScaling(funcID string, amount int64, timestamp float64) {
-	s.replicasCount += amount
-	replicasCountStr := strconv.FormatInt(s.replicasCount, 10)
+func (r *router) registerReplicaScaling(funcID string, amount int64, timestamp float64) {
+	r.replicasCount += amount
+	replicasCountStr := strconv.FormatInt(r.replicasCount, 10)
 	timestampStr := strconv.FormatFloat(timestamp, 'f', -1, 64)
-	s.register = append(s.register, []string{funcID, replicasCountStr, timestampStr})
+	r.register = append(r.register, []string{funcID, replicasCountStr, timestampStr})
 }
 
-func (s *selector) GetOutPut() ([][]string, [][]string) {
-	rp_res := [][]string{}
+func (r *router) GetOutPut() ([][]string, [][]string) {
+	p_res := [][]string{}
 	header := []string{"replicaID", "rpID", "appID", "funcID", "busyTime", "upTime", "reqsProcessed", "lastWorkTS", "startTS", "shutdownTS"}
-	rp_res = append(rp_res, header)
-	for _, rp := range s.provisioners {
-		rp_res = append(rp_res, rp.getOutPut()...)
+	p_res = append(p_res, header)
+	for _, p := range r.provisioners {
+		p_res = append(p_res, p.getOutPut()...)
 	}
 
-	sel_res := [][]string{}
+	r_res := [][]string{}
 	header = []string{"funcID", "replica_amount", "timestamp"}
-	sel_res = append(sel_res, header)
-	sel_res = append(sel_res, s.register...)
+	r_res = append(r_res, header)
+	r_res = append(r_res, r.register...)
 
-	return rp_res, sel_res
+	return p_res, r_res
 }

@@ -65,8 +65,8 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	fmt.Printf("SimulationName: %s\n", simulationName)
 	fmt.Printf("OutputPath: %s\n\n", outputPath)
 
-	selector := common.NewSelector(invocations, cfg)
-	replayer := common.NewReplayer(invocations, selector, simulationName, fmt.Sprintf("[cyan][%d/%d][reset] Running simulation...", count, total))
+	router := common.NewRouter(invocations, cfg)
+	replayer := common.NewReplayer(invocations, router, simulationName, fmt.Sprintf("[cyan][%d/%d][reset] Running simulation...", count, total))
 
 	fmt.Print("Starting simulation...")
 	replayer.Run()
@@ -76,7 +76,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	fmt.Println("Writing results at " + techniqueOutputPath)
 	io.WriteOutput(techniqueOutputPath, simulationName+"-invocations.csv", invocations.GetOutPut())
 
-	replicasOutput, selectorOutput := selector.GetOutPut()
+	replicasOutput, selectorOutput := router.GetOutPut()
 	io.WriteOutput(techniqueOutputPath, simulationName+"-replicas.csv", replicasOutput)
 	io.WriteOutput(techniqueOutputPath, simulationName+"-selector.csv", selectorOutput)
 	fmt.Println("Results for " + simulationName + " was written\n")

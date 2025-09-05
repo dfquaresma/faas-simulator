@@ -36,7 +36,7 @@ func newProvisioner(aid, fid string, cfg model.Config, r *router) *provisioner {
 }
 
 func (p *provisioner) forward(i *model.Invocation) {
-	p.technique.forward(i)
+	p.getAvailableReplica().process(i)
 }
 
 func (p *provisioner) response(i *model.Invocation) {
@@ -72,8 +72,12 @@ func (p *provisioner) notifyTermination(funcID string, timestamp float64) {
 	p.router.registerReplicaScaling(funcID, -1, timestamp)
 }
 
-func (p *provisioner) warnReqLatency(i *model.Invocation) {
-	p.technique.processWarning(i)
+func (p *provisioner) triggerTechnique(i *model.Invocation) (bool, float64) {
+	return p.technique.trigger(i)
+}
+
+func (p *provisioner) getTechniqueDelay(i *model.Invocation) float64 {
+	return p.technique.getDelay(i)
 }
 
 func (p *provisioner) terminate() {

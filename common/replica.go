@@ -55,46 +55,38 @@ func (r *replica) Run() {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*model.Invocation)
-
-			forwardLatency := r.cfg.ForwardLatency
-			godes.Advance(forwardLatency)
-			i.UpdateResponse(forwardLatency, r.replicaID)
-
-			dur := i.GetDuration()
 			if r.reqsProcessed == 0 {
 				i.SetAsColdStart()
-				dur = i.GetColdStart()
 			}
 
-			if i.IsTailLatency() {
-				tailLatencyThreshold := i.GetTailLatencyThreshold()
-				i.UpdateResponse(tailLatencyThreshold, r.replicaID)
-				dur = i.GetDuration() - tailLatencyThreshold // dur is now the surplus latency after the threshold
-				switch r.cfg.Technique {
-				case "GCI":
-					if !i.IsColdStart() {
-						r.provisioner.warnReqLatency(i)
-						godes.Advance(tailLatencyThreshold)
-						r.busyTime += tailLatencyThreshold
-						r.lastWorkTS = godes.GetSystemTime()
+			forwardLatency := r.cfg.ForwardLatency
+			if forwardLatency != 0 {
+				godes.Advance(forwardLatency)
+			}
+			i.UpdateResponse(forwardLatency, r.replicaID)
 
-						if r.terminatedCond.GetState() {
-							r.setUptimeStats()
-							break
-						}
+			delay := r.provisioner.getTechniqueDelay(i)
+			if delay != 0 {
+				godes.Advance(delay)
+				r.busyTime += delay
+				i.UpdateResponse(delay, r.replicaID)
+			}
+			dur := i.GetDuration() - delay // dur is now the surplus latency after delay to warn TLTT
 
-						r.isBusy.Set(false)
-						r.provisioner.setAvailable(r)
-						continue
-					}
+			shouldTimeout, timeToTimeout := r.provisioner.triggerTechnique(i)
+			if shouldTimeout {
+				godes.Advance(timeToTimeout)
+				r.busyTime += timeToTimeout
+				r.lastWorkTS = godes.GetSystemTime()
 
-				case "RequestHedgingOpt":
-					if !i.IsCopy() {
-						godes.Advance(tailLatencyThreshold)
-						r.busyTime += tailLatencyThreshold
-						r.provisioner.warnReqLatency(i)
-					}
+				if r.terminatedCond.GetState() {
+					r.setUptimeStats()
+					break
 				}
+
+				r.isBusy.Set(false)
+				r.provisioner.setAvailable(r)
+				continue
 			}
 
 			godes.Advance(dur)

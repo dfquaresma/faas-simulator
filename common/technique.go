@@ -36,20 +36,18 @@ func (t *technique) newLatency(id string) float64 {
 	return latencies[int(t.uniform.Rand()*float64(len(latencies)))]
 }
 
-func (t *technique) forward(i *model.Invocation) {
-	t.provisioner.getAvailableReplica().process(i)
-	if t.config == "RequestHedgingDefault" {
-		iCopy := model.CopyInvocation(i)
-		iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
-		iCopy.SetForwardedTs(godes.GetSystemTime())
-		t.provisioner.getAvailableReplica().process(iCopy)
-	}
-}
-
-func (t *technique) processWarning(i *model.Invocation) {
+func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 	switch t.config {
-	case "GCI":
-		if !i.IsColdStart() {
+	case "simplehr", "delayedhr":
+		if !i.IsCopy() {
+			iCopy := model.CopyInvocation(i)
+			iCopy.SetForwardedTs(godes.GetSystemTime())
+			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
+			t.provisioner.getAvailableReplica().process(iCopy)
+		}
+
+	case "gci":
+		if !i.IsColdStart() && i.IsTailLatency() {
 			iCopy := model.CopyInvocation(i)
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
@@ -58,15 +56,19 @@ func (t *technique) processWarning(i *model.Invocation) {
 				iCopy.UpdateSource(i)
 			}
 			t.provisioner.getAvailableReplica().process(iCopy)
+			return true, i.GetTailLatencyThreshold()
 		}
+	}
+	return false, 0
+}
 
-	case "RequestHedgingOpt":
-		if !i.IsCopy() {
-			iCopy := model.CopyInvocation(i)
-			iCopy.SetForwardedTs(godes.GetSystemTime())
-			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
-			t.provisioner.getAvailableReplica().process(iCopy)
-		}
+func (t *technique) getDelay(i *model.Invocation) float64 {
+	switch t.config {
+	case "DelayedHR":
+		return i.GetTailLatencyThreshold()
+
+	default:
+		return 0
 	}
 }
 

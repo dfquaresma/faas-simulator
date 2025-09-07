@@ -1,0 +1,61 @@
+---
+title: "Azure Analysis"
+author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
+date: "set, 2025"
+output: pdf_document
+---
+
+# Load Utils
+```{r setup, include=FALSE}
+source("utils.R")
+```
+
+# Read Azure Imput
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+azure_input = read.csv(paste(
+  "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/azure/",
+  "AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv", sep="")
+)
+
+# make timestamp readable as human 
+#df = azure_input
+#df$target_timestamp = df$start_timestamp
+#df$time_readable <- as.POSIXct(df$target_timestamp, origin = "2021-01-31", tz = "UTC")
+
+functions_to_plot <- c(
+  "155e47f8e7f751d0c845049456d01832013c61336a8cd85901330ac821a71534", # 535667 -> 535667
+  "8ef9c2c907e9cd5fb4b5cb3bfbebca6d9a01bb1f65a0f476e3914cae25bd2aae", # 212755 -> 161085 (had zero duration entries)
+  "cc5bb2108cc7daf53f9728ad21f661a8ef9c8b36284bacfcb712e2be87eef842", # 142856 -> 142856
+  "4753d9ffc8a362eadfb27498581969561c0ddbec7257759dbcb9936e506aff82", # 124143 -> 124143
+  "89d488538f940c98367ff572230106d1089868bdd379d9e2b9755b679dc186d2", # 76093 -> 76093
+  "bd5be891d0d10fbc3c59215d5f8159ea496433bc41adba7d8d10ea21d35c3e3a", # 116130 -> 73464 (had zero duration entries)
+  "30aa434528bc68ee07745ee7be3a0bdb33d58961fdc8460ce5b5b46b4def96e8", # 71759 -> 71759
+  "b89efb5e9d1b7e5900ef441b098d4c8b01600af5e673a9f9d607b3598f0fe548", # 63506 -> 63506
+  "8e5f533dbf1092f56ac6c7542ef3bdec4661bd442c9b5e7537fabc7b8c03f5a8", # 53263 -> 53263
+  "c098bb74acb70a0ea1bce98a7090169f3be59a0758389a403d77592aa56ce596", # 41333 -> 41333
+  "eefb3a7b86d12c2676276a5dde28099ef6f546a60e5b78e0a1c2b7221baf154d"  # 41333 -> 3107 (had too many zero duration entries)
+)
+  
+titles <- c(
+  "func w/ suffix 534",
+  "func w/ suffix aae", 
+  "func w/ suffix 842",
+  "func w/ suffix f82",
+  "func w/ suffix 6d2",
+  "func w/ suffix e3a",
+  "func w/ suffix 6e8",
+  "func w/ suffix 548",
+  "func w/ suffix 5a8",
+  "func w/ suffix 596",
+  "func w/ suffix 54d"
+)
+
+for (i in 1:length(functions_to_plot)) {
+  azure_input_filtered = filter(azure_input, func == functions_to_plot[i])
+  print(plot_requests_workload(azure_input_filtered, title=paste("Invocations for Function ", titles[i], sep="")))
+}
+```
+
+# 
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+```

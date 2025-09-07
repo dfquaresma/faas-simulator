@@ -1,0 +1,42 @@
+{
+  "requests_count": 150000,
+  "interarrival_distribution": [
+    "constant",
+    "constant",
+    "constant",
+    "poisson",
+    "poisson",
+    "poisson"
+  ],
+  "latency_distribution": [
+    "bernoulli",
+    "weibull",
+    "logNormal",
+    "bernoulli",
+    "weibull",
+    "logNormal"
+  ],
+  "outputPath": "./",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "bernoulli": {
+        "latency": 1.0,
+        "tailLatency": 10.0,
+        "prob": 0.1
+      },
+      "poisson": {
+        "lambda": 4.0
+      },
+      "weibull": {
+        "k": 0.5,
+        "lambda": 5.0
+      },
+      "logNormal": {
+        "mu": 0,
+        "sigma": 0.25
+      }
+    }
+  }
+  

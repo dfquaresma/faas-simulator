@@ -1,28 +1,41 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/dfquaresma/faas-simulator/runner"
 	"github.com/spf13/viper"
 )
 
 func main() {
+	start := time.Now()
+	runner.Sim(getConfigs("generator"))
+	generator_total_time := time.Since(start)
+
+	start = time.Now()
+	runner.Sim(getConfigs("azure"))
+	azure_total_time := time.Since(start)
+
+	fmt.Printf("Generator TotalTime: %s, Azure Totaltime: %s", generator_total_time, azure_total_time)
+}
+
+func getConfigs(s string) (string, string, []string, []string, []int, int) {
 	viper.SetConfigFile("config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Failed to read config file: %s", err)
-		return
+		panic("Failed to read config file")
 	}
 
-	tracePath := viper.GetString("tracePath")
-	outputPath := viper.GetString("outputPath")
+	tracePath := viper.GetString(s + ".tracePath")
+	outputPath := viper.GetString(s + ".outputPath")
+	techniques := viper.GetStringSlice(s + ".resourceProvisioner.technique")
+	tailLatencyProbs := viper.GetStringSlice(s + ".resourceProvisioner.tailLatencyProb")
 
-	techniques := viper.GetStringSlice("resourceProvisioner.technique")
-	tailLatencyProbs := viper.GetStringSlice("resourceProvisioner.tailLatencyProb")
+	idletimes := viper.GetIntSlice(s + ".resourceProvisioner.idletime")
+	forwardLatencies := viper.GetInt(s + ".forwardLatency")
 
-	idletimes := viper.GetIntSlice("resourceProvisioner.idletime")
-	forwardLatencies := viper.GetInt("forwardLatency")
-
-	runner.Sim(tracePath, outputPath, techniques, tailLatencyProbs, idletimes, forwardLatencies)
+	return tracePath, outputPath, techniques, tailLatencyProbs, idletimes, forwardLatencies
 }

@@ -1,10 +1,22 @@
 {
-  "tracePath": "./azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
-  "outputPath": "./results_azure_TEST/",
-  "forwardLatency": 1,
-  "resourceProvisioner": {
-    "tailLatencyProb": ["p95", "p99"],
-    "idletime": [-1, 0, 900],
-    "technique": ["Vanilla", "RequestHedgingOpt", "GCI", "RequestHedgingDefault"]
+  "generator": {
+    "tracePath": "./traces/generator/all_generated_preprocessed-final.csv",
+    "outputPath": "./results/generator/",
+    "forwardLatency": 1,
+    "resourceProvisioner": {
+      "tailLatencyProb": ["p95", "p99"],
+      "idletime": [-1, 0, 900],
+      "technique": ["baseline", "simplehr", "delayedhr", "gci"]
+    }
+  },
+  "azure": {
+    "tracePath": "./traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
+    "outputPath": "./results/azure/",
+    "forwardLatency": 1,
+    "resourceProvisioner": {
+      "tailLatencyProb": ["p95", "p99"],
+      "idletime": [-1, 0, 900],
+      "technique": ["baseline", "simplehr", "delayedhr", "gci"]
+    }
   }
 }

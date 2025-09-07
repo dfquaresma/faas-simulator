@@ -17,3 +17,4 @@ faas-simulator
 *results*
 *.csv
 *tmp*
+*.DS_Store

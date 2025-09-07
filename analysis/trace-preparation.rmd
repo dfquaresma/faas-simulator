@@ -84,26 +84,15 @@ titles <- c(
 #  "func w/ suffix 54d"
 )
 
-colors = c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
 for (i in 1:length(functions_to_plot)) {
   print(
-    plot_histogram(
+    call_histograms(
       filter(inv2021, func == functions_to_plot[i])$duration,
       filter(inv2021_preprocessed, func == functions_to_plot[i])$duration,
       "original",
       "preprocessed",
       titles[i],
-      colors
-    )
-  )
-  print(
-    plot_histogram_fortail(
-      filter(inv2021, func == functions_to_plot[i])$duration,
-      filter(inv2021_preprocessed, func == functions_to_plot[i])$duration,
-      "original",
-      "preprocessed",
-      titles[i],
-      colors
+      c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
     )
   )
 }
@@ -112,43 +101,32 @@ for (i in 1:length(functions_to_plot)) {
 # Generated Functions Plot
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 functions_to_plot <- c(
-  "poisson-bernoulli-func",
   "constant-bernoulli-func",
-  "poisson-weibull-func",
   "constant-weibull-func",
-  "poisson-logNormal-func",
   "constant-logNormal-func"
+ #"poisson-bernoulli-func",
+ #"poisson-weibull-func",
+ #"poisson-logNormal-func",
 )
   
 titles <- c(
   "constant-bernoulli func",
-  "poisson-bernoulli func",
   "constant-weibull func",
-  "poisson-weibull func",
-  "constant-logNormal func",
-  "poisson-logNormal func"
+  "constant-logNormal func"
+  #"poisson-bernoulli func",
+  #"poisson-weibull func",
+  #"poisson-logNormal func"
 )
 
-colors = c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
 for (i in 1:length(functions_to_plot)) {
   print(
-    plot_histogram(
+    call_histograms(
       filter(all_generated, func == functions_to_plot[i])$duration,
       filter(all_generated_preprocessed, func == functions_to_plot[i])$duration,
       "original",
       "preprocessed",
       titles[i],
-      colors
-    )
-  )
-  print(
-    plot_histogram_fortail(
-      filter(all_generated, func == functions_to_plot[i])$duration,
-      filter(all_generated_preprocessed, func == functions_to_plot[i])$duration,
-      "original",
-      "preprocessed",
-      titles[i],
-      colors
+      c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
     )
   )
 }

@@ -9,13 +9,44 @@ output: pdf_document
 source("utils.R")
 ```
 
-# Load Generated
+# Load Data
+## Load Generated
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 generated_input = read.csv(paste(
   "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generator/",
   "all_generated_preprocessed-final.csv", sep="")
 )
 #generated_input$time_readable <- as.POSIXct(generated_input$target_timestamp, origin = "2021-01-31", tz = "UTC")
+```
+
+## Load Simulated
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/baseline/"
+baseline_inf_input = read.csv(paste(
+  sim_results_path,
+  "baseline_idletimeINF_tlprobp95-invocations.csv", sep="")
+)
+baseline_15min_input = read.csv(paste(
+  sim_results_path,
+  "baseline_idletime900.0_tlprobp95-invocations.csv", sep="")
+)
+baseline_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(baseline_inf_input)$responseTimeToEvaluate
+baseline_15min_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(baseline_15min_input)$responseTimeToEvaluate
+
+
+sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/simplehr/"
+simplehr_inf_input = read.csv(paste(
+  sim_results_path,
+  "simplehr_idletimeINF_tlprobp95-invocations.csv", sep="")
+)
+simplehr_15min_input = read.csv(paste(
+  sim_results_path,
+  "simplehr_idletime900.0_tlprobp95-invocations.csv", sep="")
+)
+simplehr_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(simplehr_inf_input)$responseTimeToEvaluate
+simplehr_15min_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(simplehr_15min_input)$responseTimeToEvaluate
+
+rm(sim_results_path)
 ```
 
 # Plot Arrivals Rate
@@ -26,8 +57,8 @@ functions_to_plot <- c(
   #"constant-weibull-func"
 )
 titles <- c(
-  "constant-bernoulli func",
-  "constant-logNormal func"
+  "bernoulli",
+  "logNormal"
   #"constant-weibull func"
 )
 
@@ -38,108 +69,59 @@ for (i in 1:length(functions_to_plot)) {
 rm(generated_input_filtered)
 ```
 
-# Plot Histogram of Latency for Generated Bernoulli & LogNormal (trace input vs simulated baseline at idletime as inf)
+# Histograms for Latency:
+## Sanity Tests comparing generated traces (Bernoulli & LogNormal) to simulated baseline at idletime INF
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/baseline/"
-baseline_inf_input = read.csv(paste(
-  sim_results_path,
-  "baseline_idletimeINF_tlprobp95-invocations.csv", sep="")
-)
-baseline_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(baseline_inf_input)$responseTimeToEvaluate
-rm(sim_results_path)
-
-colors = c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
-selected_function = functions_to_plot[1]
-plot_histogram(
-  filter(generated_input, func == selected_function)$duration,
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "bernoulli trace input",
-  "bernoulli baseline sim",
-  "Generated vs Simulated",
-  colors
-)
-plot_histogram_fortail(
-  filter(generated_input, func == selected_function)$duration,
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "bernoulli trace input",
-  "bernoulli baseline sim",
-  "Generated vs Simulated",
-  colors
-)
-
-selected_function = functions_to_plot[2]
-plot_histogram(
-  filter(generated_input, func == selected_function)$duration,
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "logNormal trace input",
-  "logNormal baseline sim",
-  "Generated vs Simulated",
-  colors
-)
-plot_histogram_fortail(
-  filter(generated_input, func == selected_function)$duration,
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "logNormal trace input",
-  "logNormal baseline sim",
-  "Generated vs Simulated",
-  colors
-)
-
-rm(colors)
+for (i in 1:length(functions_to_plot)) {
+  selected_function = functions_to_plot[i]
+  call_histograms(
+    filter(generated_input, func == selected_function)$duration,
+    filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
+    paste(titles[i], "trace input", sep=" "),
+    paste(titles[i], "baseline sim", sep=" "),
+    "Generated vs Simulated: Sanity Check",
+    c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
+  )
+}
 rm(selected_function)
-#rm(generated_input)
 ```
 
-# Plot Histogram of Latency for Simulated SimpleHR vs Baseline (for both Bernoulli, LogNormal traces, at idletime as inf)
+## Simulated: SimpleHR vs Baseline with idletime as INF
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/simplehr/"
-simplehr_inf_input = read.csv(paste(
-  sim_results_path,
-  "simplehr_idletimeINF_tlprobp95-invocations.csv", sep="")
-)
-simplehr_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(simplehr_inf_input)$responseTimeToEvaluate
-
-
-        
-rm(sim_results_path)
-
-colors = c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
-selected_function = functions_to_plot[1]
-plot_histogram(
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "bernoulli baseline sim",
-  "bernoulli simplehr sim",
-  "Generated vs Simulated",
-  colors
-)
-plot_histogram_fortail(
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "bernoulli baseline sim",
-  "bernoulli simplehr sim",
-  "Generated vs Simulated",
-  colors
-)
-
-selected_function = functions_to_plot[2]
-plot_histogram(
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "logNormal baseline sim",
-  "logNormal simplehr sim",
-  "Generated vs Simulated",
-  colors
-)
-plot_histogram_fortail(
-  filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-  "logNormal baseline sim",
-  "logNormal simplehr sim",
-  "Generated vs Simulated",
-  colors
-)
-
-rm(colors)
+for (i in 1:length(functions_to_plot)) {
+  selected_function = functions_to_plot[i]
+  call_histograms(
+    filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
+    filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
+    paste(titles[i], "baseline sim", sep=" "),
+    paste(titles[i], "simplehr sim", sep=" "),
+    "Generated vs Simulated for Idletime INF",
+    c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
+  )
+}
 rm(selected_function)
+```
+
+## Simulated: SimpleHR vs Baseline with idletime as ZERO
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+for (i in 1:length(functions_to_plot)) {
+  selected_function = functions_to_plot[i]
+  call_histograms(
+    filter(baseline_15min_input, funcID == selected_function)$responseTimeToEvaluate,
+    filter(simplehr_15min_input, funcID == selected_function)$responseTimeToEvaluate,
+    paste(titles[i], "baseline sim", sep=" "),
+    paste(titles[i], "simplehr sim", sep=" "),
+    "Generated vs Simulated for Idletime 15min",
+    c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
+  )
+}
+rm(selected_function)
+```
+
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+
+```
+
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+
 ```

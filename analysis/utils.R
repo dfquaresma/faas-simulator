@@ -319,6 +319,11 @@ plot_histogram_fortail <- function(df1, df2, df1_name, df2_name, title, colors) 
           plot.caption = element_text(size = 9, hjust = 0.5))
 }
 
+call_histograms <- function(df1_latency, df2_latency, df1_name, df2_name, titles, colors) {
+  print(plot_histogram(df1_latency, df2_latency, df1_name, df2_name, titles, colors))
+  print(plot_histogram_fortail(df1_latency, df2_latency, df1_name, df2_name, titles, colors))
+}
+
 calculate_responseTimeToEvaluate <- function(df) {
   df$minResponseTime = pmin(df$responseTime, df$techniqueResponseTime)
   df$responseTimeToEvaluate = ifelse(df$minResponseTime != 0, df$minResponseTime, df$responseTime)

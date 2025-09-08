@@ -2,21 +2,21 @@
   "generator": {
     "tracePath": "./traces/generator/all_generated_preprocessed-final.csv",
     "outputPath": "./sim_results/generator/",
-    "forwardLatency": 1,
+    "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
       "idletime": [-1, 0, 900],
-      "technique": ["baseline", "simplehr", "delayedhr", "gci"]
+      "technique": ["baseline", "simplehr", "delayedhr"]
     }
   },
   "azure": {
     "tracePath": "./traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
     "outputPath": "./sim_results/azure/",
-    "forwardLatency": 1,
+    "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
       "idletime": [-1, 0, 900],
-      "technique": ["baseline", "simplehr", "delayedhr", "gci"]
+      "technique": ["baseline", "simplehr", "delayedhr"]
     }
   }
 }

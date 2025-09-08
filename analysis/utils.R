@@ -2,7 +2,6 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 library(tidyr)
-##require(quantileCI)
 
 preprocess_data <- function(df) {
   rm_smallsample_functions <- function(df) {
@@ -331,6 +330,95 @@ calculate_responseTimeToEvaluate <- function(df) {
   return(df)
 }
 
+summary_table <- function(df1, tag1, df2, tag2, boot_n = 500, conf = 0.95) {
+  # Função auxiliar: intervalo de confiança para um quantil via bootstrap
+  qCI <- function(df, p) {
+    n_boot <- min(length(df), 10000) 
+    boots <- replicate(boot_n, {
+      sample_df <- sample(df, n_boot, replace = TRUE)
+      quantile(sample_df, probs = p, na.rm = TRUE)
+    })
+    ci <- quantile(boots, probs = c((1 - conf)/2, 1 - (1 - conf)/2), na.rm = TRUE)
+    return(ci)
+  }
+  
+  stats <- function(df) {
+    # Média com IC (t.test já faz isso)
+    avg <- signif(t.test(df)$conf.int, digits = 2)
+    
+    # Quantis com IC bootstrap
+    p50   <- signif(qCI(df, 0.5),   digits = 4)
+    p95   <- signif(qCI(df, 0.95),  digits = 4)
+    p99   <- signif(qCI(df, 0.99),  digits = 4)
+    p999  <- signif(qCI(df, 0.999), digits = 4)
+    #dist  <- signif(p999 - p50,     digits = 4)
+    
+    data <- c(avg, p50, p95, p99, p999)#, dist)
+    return(data)
+  }
+  
+  stats1 <- stats(df1)
+  stats2 <- stats(df2)
+  
+  avgdf  <- data.frame("avg",  stats1[1],  stats1[2],  stats2[1],  stats2[2])
+  p50df  <- data.frame("p50",  stats1[3],  stats1[4],  stats2[3],  stats2[4])
+  p95df  <- data.frame("p95",  stats1[5],  stats1[6],  stats2[5],  stats2[6])
+  p99df  <- data.frame("p99",  stats1[7],  stats1[8],  stats2[7],  stats2[8])
+  p999df <- data.frame("p999", stats1[9],  stats1[10], stats2[9],  stats2[10])
+  #distdf <- data.frame("dist", stats1[11], stats1[12], stats2[11], stats2[12])
+  
+  tag1_inf <- paste(tag1, "cii", sep = ".")
+  tag1_sup <- paste(tag1, "cis", sep = ".")
+  tag2_inf <- paste(tag2, "cii", sep = ".")
+  tag2_sup <- paste(tag2, "cis", sep = ".")
+  
+  names(avgdf)  <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  names(p50df)  <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  names(p95df)  <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  names(p99df)  <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  names(p999df) <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  #names(distdf) <- c("stats", tag1_inf, tag1_sup, tag2_inf, tag2_sup)
+  
+  df <- rbind(avgdf, p50df, p95df, p99df, p999df)#, distdf)
+  return(df)
+}
+
+plot_replicas_alive <- function(df, snames, scenario_col = "scenario", title = "Replicas Active") {
+  df$time_readable <- as.POSIXct(df$timestamp, origin = "2021-01-31", tz = "UTC")
+  df[[scenario_col]] <- factor(
+    df[[scenario_col]],
+    levels = snames
+  )
+  
+  ggplot(df, aes(x = time_readable, y = replica_amount, color = !!sym(scenario_col))) +
+    geom_line(size = 0.5) +
+    geom_point(size = 0.5) +
+    scale_color_manual(values = setNames(
+      c("limegreen", "orange", "blue", "red"),
+      snames[1:4]
+    )) +
+    scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
+    scale_linetype_manual(values = setNames(
+      c("solid", "dotted", "dotdash", "dashed"),
+      snames[1:4]
+    )) +
+    scale_x_datetime(
+      date_labels = "%d %b\n%H:%M",   # e.g. "01 Jan\n12:00"
+      date_breaks = "2 days"          # tick every 2 days
+    ) +
+    labs(
+      title = title,
+      x = "Time (2-week window)",
+      y = "Amount of Alive Replicas",
+      color = "scenario"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "top"
+    )
+}
+
 plot_ecdf <- function(title, df, xinf, xsup, yinf, ysup, linetype=c("solid", "dotted", "dotdash", "dashed"), cols=c(15, 195, 150), img_name=FALSE) {
   vanilla.color <- "limegreen"
   vanilla.p95 <- quantile(df$vanilla, 0.95)
@@ -419,36 +507,6 @@ plot_ecdf <- function(title, df, xinf, xsup, yinf, ysup, linetype=c("solid", "do
     ggsave(img_name, width=10, height=5)
   }
   print(p)
-}
-
-plot_replicas_alive <- function(df, scenario_col = "scenario", title = "Replicas Active") {
-  df$time_readable <- as.POSIXct(df$timestamp, origin = "2021-01-31", tz = "UTC")
-  df[[scenario_col]] <- factor(
-    df[[scenario_col]],
-    levels = c("gci", "rh", "rho", "vanilla")
-  )
-  
-  ggplot(df, aes(x = time_readable, y = replica_amount, color = !!sym(scenario_col))) +
-    geom_line(size = 0.5) +
-    geom_point(size = 0.5) +
-    scale_color_manual(values=c("vanilla"="limegreen", "rh"="purple", "rho"="blue", "gci"="red")) +
-    scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
-    scale_linetype_manual(values=c("vanilla"="solid", "rh"="dotted", "rho"="dotdash", "gci"="dashed")) +
-    scale_x_datetime(
-      date_labels = "%d %b\n%H:%M",   # e.g. "01 Jan\n12:00"
-      date_breaks = "2 days"          # tick every 2 days
-    ) +
-    labs(
-      title = title,
-      x = "Time (2-week window)",
-      y = "Amount of Alive Replicas",
-      color = "scenario"
-    ) +
-    theme_minimal(base_size = 14) +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      legend.position = "top"
-    )
 }
 
 load_data_summarized <- function(results_path, techs, probs, idletimes) {
@@ -553,7 +611,5 @@ plot_hist_summarized <- function(df, metric, y_label, title) {
       axis.text = element_text(size = 10)
     )
 }
-
-
 
 

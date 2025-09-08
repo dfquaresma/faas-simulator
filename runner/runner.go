@@ -13,7 +13,7 @@ func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, id
 	start := time.Now()
 	count := 1
 	fLatency := float64(forwardLatencies)
-	total := forwardLatencies * len(idletimes) * len(tailLatencyProbs) * len(techniques)
+	total := len(idletimes) * len(tailLatencyProbs) * len(techniques)
 	io.WriteOutputHeaderRow(outputPath, "replayer-stats.csv", []string{"elapsedTime", "currentTime", "id"})
 	for _, p := range tailLatencyProbs {
 		for _, i := range idletimes {
@@ -78,7 +78,7 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 
 	replicasOutput, selectorOutput := router.GetOutPut()
 	io.WriteOutput(techniqueOutputPath, simulationName+"-replicas.csv", replicasOutput)
-	io.WriteOutput(techniqueOutputPath, simulationName+"-selector.csv", selectorOutput)
+	io.WriteOutput(techniqueOutputPath, simulationName+"-provisioners.csv", selectorOutput)
 	fmt.Println("Results for " + simulationName + " was written\n")
 
 	return replayer.GetOutPut()

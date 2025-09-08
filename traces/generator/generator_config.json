@@ -34,8 +34,8 @@
         "lambda": 5.0
       },
       "logNormal": {
-        "mu": 0,
-        "sigma": 0.25
+        "mu": 1,
+        "sigma": 1
       }
     }
   }

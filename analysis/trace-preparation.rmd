@@ -85,15 +85,13 @@ titles <- c(
 )
 
 for (i in 1:length(functions_to_plot)) {
-  print(
-    call_histograms(
-      filter(inv2021, func == functions_to_plot[i])$duration,
-      filter(inv2021_preprocessed, func == functions_to_plot[i])$duration,
-      "original",
-      "preprocessed",
-      titles[i],
-      c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
-    )
+  call_histograms(
+    filter(inv2021, func == functions_to_plot[i])$duration,
+    filter(inv2021_preprocessed, func == functions_to_plot[i])$duration,
+    "original",
+    "preprocessed",
+    titles[i],
+    c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
   )
 }
 ```
@@ -119,15 +117,13 @@ titles <- c(
 )
 
 for (i in 1:length(functions_to_plot)) {
-  print(
-    call_histograms(
-      filter(all_generated, func == functions_to_plot[i])$duration,
-      filter(all_generated_preprocessed, func == functions_to_plot[i])$duration,
-      "original",
-      "preprocessed",
-      titles[i],
-      c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
-    )
+  call_histograms(
+    filter(all_generated, func == functions_to_plot[i])$duration,
+    filter(all_generated_preprocessed, func == functions_to_plot[i])$duration,
+    "original",
+    "preprocessed",
+    titles[i],
+    c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
   )
 }
 ```

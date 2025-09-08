@@ -21,50 +21,70 @@ generated_input = read.csv(paste(
 
 ## Load Simulated
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/baseline/"
-baseline_inf_input = read.csv(paste(
-  sim_results_path,
-  "baseline_idletimeINF_tlprobp95-invocations.csv", sep="")
-)
-baseline_15min_input = read.csv(paste(
-  sim_results_path,
-  "baseline_idletime900.0_tlprobp95-invocations.csv", sep="")
-)
+load_sim_results <- function(file_sufix) {
+  sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/baseline/"
+  technique = "baseline"
+  parameters = "_idletimeINF_tlprobp95"
+ 
+  baseline_inf_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  parameters = "_idletime900.0_tlprobp95"
+  baseline_15min_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  
+  sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/simplehr/"
+  technique = "simplehr"
+  parameters = "_idletimeINF_tlprobp95"
+  simplehr_inf_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  parameters = "_idletime900.0_tlprobp95"
+  simplehr_15min_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  
+  rm(sim_results_path)
+  rm(technique)
+  rm(parameters)
+  rm(file_sufix)
+  
+  return(
+    list(
+      baseline_inf_input = baseline_inf_input,
+      baseline_15min_input = baseline_15min_input,
+      simplehr_inf_input = simplehr_inf_input,
+      simplehr_15min_input = simplehr_15min_input
+    )
+  )
+}
+
+file_sufix = "-invocations.csv"
+loaded = load_sim_results(file_sufix)
+baseline_inf_input = loaded$baseline_inf_input
+baseline_15min_input = loaded$baseline_15min_input
+simplehr_inf_input = loaded$simplehr_inf_input
+simplehr_15min_input = loaded$simplehr_15min_input
+
 baseline_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(baseline_inf_input)$responseTimeToEvaluate
 baseline_15min_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(baseline_15min_input)$responseTimeToEvaluate
-
-
-sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/simplehr/"
-simplehr_inf_input = read.csv(paste(
-  sim_results_path,
-  "simplehr_idletimeINF_tlprobp95-invocations.csv", sep="")
-)
-simplehr_15min_input = read.csv(paste(
-  sim_results_path,
-  "simplehr_idletime900.0_tlprobp95-invocations.csv", sep="")
-)
 simplehr_inf_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(simplehr_inf_input)$responseTimeToEvaluate
 simplehr_15min_input$responseTimeToEvaluate = calculate_responseTimeToEvaluate(simplehr_15min_input)$responseTimeToEvaluate
-
-rm(sim_results_path)
 ```
 
-# Plot Arrivals Rate
+# Plot Arrivals Rate + Cullen and Frey Graph
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(fitdistrplus)
+
 functions_to_plot <- c(
   "constant-bernoulli-func",
-  "constant-logNormal-func"
-  #"constant-weibull-func"
+  "constant-logNormal-func",
+  "constant-weibull-func"
 )
 titles <- c(
   "bernoulli",
-  "logNormal"
-  #"constant-weibull func"
+  "logNormal",
+  "weibull"
 )
 
 for (i in 1:length(functions_to_plot)) {
   generated_input_filtered = filter(generated_input, func == functions_to_plot[i])
   print(plot_requests_workload(generated_input_filtered, title=paste("Invocations for Function ", titles[i], sep="")))
+
+  #desc_dist <- descdist(generated_input_filtered %>% pull(duration), discrete = FALSE, boot = 500)
 }
 rm(generated_input_filtered)
 ```
@@ -73,55 +93,178 @@ rm(generated_input_filtered)
 ## Sanity Tests comparing generated traces (Bernoulli & LogNormal) to simulated baseline at idletime INF
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 for (i in 1:length(functions_to_plot)) {
-  selected_function = functions_to_plot[i]
   call_histograms(
-    filter(generated_input, func == selected_function)$duration,
-    filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
+    filter(generated_input, func == functions_to_plot[i])$duration,
+    filter(baseline_inf_input, funcID == functions_to_plot[i])$responseTimeToEvaluate,
     paste(titles[i], "trace input", sep=" "),
     paste(titles[i], "baseline sim", sep=" "),
     "Generated vs Simulated: Sanity Check",
     c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
   )
 }
-rm(selected_function)
 ```
 
 ## Simulated: SimpleHR vs Baseline with idletime as INF
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 for (i in 1:length(functions_to_plot)) {
-  selected_function = functions_to_plot[i]
   call_histograms(
-    filter(baseline_inf_input, funcID == selected_function)$responseTimeToEvaluate,
-    filter(simplehr_inf_input, funcID == selected_function)$responseTimeToEvaluate,
+    filter(baseline_inf_input, funcID == functions_to_plot[i])$responseTimeToEvaluate,
+    filter(simplehr_inf_input, funcID == functions_to_plot[i])$responseTimeToEvaluate,
     paste(titles[i], "baseline sim", sep=" "),
     paste(titles[i], "simplehr sim", sep=" "),
     "Generated vs Simulated for Idletime INF",
     c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
   )
 }
-rm(selected_function)
 ```
 
 ## Simulated: SimpleHR vs Baseline with idletime as ZERO
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 for (i in 1:length(functions_to_plot)) {
-  selected_function = functions_to_plot[i]
   call_histograms(
-    filter(baseline_15min_input, funcID == selected_function)$responseTimeToEvaluate,
-    filter(simplehr_15min_input, funcID == selected_function)$responseTimeToEvaluate,
+    filter(baseline_15min_input, funcID == functions_to_plot[i])$responseTimeToEvaluate,
+    filter(simplehr_15min_input, funcID == functions_to_plot[i])$responseTimeToEvaluate,
     paste(titles[i], "baseline sim", sep=" "),
     paste(titles[i], "simplehr sim", sep=" "),
     "Generated vs Simulated for Idletime 15min",
     c("#FF6B6B", "#4ECDC4", "#CC0000", "#006B5B", "darkred", "darkslategray")
   )
 }
-rm(selected_function)
+```
+## Total Function Latency Reduction Table
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+scenario <- c()
+baseline_latency <- c()
+simplehr_latency <- c()
+percentage <- c()
+for (i in 1:length(functions_to_plot)) {
+  baseline_response = filter(baseline_inf_input, funcID == functions_to_plot[i])$responseTimeToEvaluate
+  simplehr_response = filter(simplehr_inf_input, funcID == functions_to_plot[i])$responseTimeToEvaluate
+  scenario <- append(scenario, paste("func", titles[i], "idletime-INF", sep="-"))
+  baseline_latency <- append(baseline_latency, sum(baseline_response))
+  simplehr_latency <- append(simplehr_latency, sum(simplehr_response))
+  percentage <- append(percentage, (1-sum(simplehr_response)/sum(baseline_response))*100)
+  #print(summary_table(baseline_response, "baseline INF", simplehr_response,"simplehr INF"))
+
+  baseline_response = filter(baseline_15min_input, funcID == functions_to_plot[i])$responseTimeToEvaluate
+  simplehr_response = filter(simplehr_15min_input, funcID == functions_to_plot[i])$responseTimeToEvaluate
+  scenario <- append(scenario, paste("func", titles[i], "idletime-15min", sep="-"))
+  baseline_latency <- append(baseline_latency, sum(baseline_response))
+  simplehr_latency <- append(simplehr_latency, sum(simplehr_response))
+  percentage <- append(percentage, (1-sum(simplehr_response)/sum(baseline_response))*100)
+  #print(summary_table(baseline_response, "baseline 15min", simplehr_response,"simplehr 15min"))
+}
+rm(baseline_response)
+rm(simplehr_response)
+
+total_latency_table <- data.frame(scenario, baseline_latency, simplehr_latency, percentage)
+print(total_latency_table)
+rm(baseline_latency)
+rm(simplehr_latency)
+rm(percentage)
+rm(total_latency_table)
+
+rm(scenario)
 ```
 
+# Replicas Evaluation
+## Load Provisioner's sim data
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-
+file_sufix = "-provisioners.csv"
+loaded = load_sim_results(file_sufix)
+baseline_inf_input = loaded$baseline_inf_input
+baseline_15min_input = loaded$baseline_15min_input
+simplehr_inf_input = loaded$simplehr_inf_input
+simplehr_15min_input = loaded$simplehr_15min_input
 ```
 
+# Plot Replicas Alive
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+for (i in 1:length(functions_to_plot)) {
+  print(
+    plot_replicas_alive(
+      bind_rows(
+        baseline_inf = filter(baseline_inf_input, funcID == functions_to_plot[i]),
+        simplehr_inf = filter(simplehr_inf_input, funcID == functions_to_plot[i]),
+        baseline_15min = filter(baseline_15min_input, funcID == functions_to_plot[i]),
+        simplehr_15min = filter(simplehr_15min_input, funcID == functions_to_plot[i]),
+        .id = "scenario"
+      ),
+      c("baseline_inf", "simplehr_inf", "baseline_15min", "simplehr_15min"),
+      scenario_col = "scenario",
+      title = paste(titles[i], ": Replicas Active for Baseline vs SimpleHR", sep="")
+    )
+  )
+}
+```
 
+## Load Replicas sim data
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+file_sufix = "-replicas.csv"
+loaded = load_sim_results(file_sufix)
+baseline_inf_input = loaded$baseline_inf_input
+baseline_15min_input = loaded$baseline_15min_input
+simplehr_inf_input = loaded$simplehr_inf_input
+simplehr_15min_input = loaded$simplehr_15min_input
+```
+
+## Table totals for uptime, busytime and ratio.
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+scenario <- c()
+baseline_sumuptime <- c()
+simplehr_sumuptime <- c()
+baseline_sumbusytime <- c()
+simplehr_sumbusytime <- c()
+baseline_effy <- c()
+simplehr_effy <- c()
+for (i in 1:length(functions_to_plot)) {
+  scenario <- append(scenario, paste("func", titles[i], "idletime-INF", sep="-"))
+  baseline_total = sum(filter(baseline_inf_input, funcID == functions_to_plot[i])$upTime)
+  simplehr_total = sum(filter(simplehr_inf_input, funcID == functions_to_plot[i])$upTime)
+  baseline_sumuptime <- append(baseline_sumuptime, baseline_total)
+  simplehr_sumuptime <- append(simplehr_sumuptime, simplehr_total)
+  baseline_busy = sum(filter(baseline_inf_input, funcID == functions_to_plot[i])$busyTime)
+  simplehr_busy = sum(filter(simplehr_inf_input, funcID == functions_to_plot[i])$busyTime)
+  baseline_sumbusytime <- append(baseline_sumbusytime, baseline_busy)
+  simplehr_sumbusytime <- append(simplehr_sumbusytime, simplehr_busy)
+  baseline_effy <- append(baseline_effy, baseline_busy/baseline_total*100)
+  simplehr_effy <- append(simplehr_effy, simplehr_busy/simplehr_total*100)
+
+  scenario <- append(scenario, paste("func", titles[i], "idletime-15min", sep="-"))
+  baseline_total = sum(filter(baseline_15min_input, funcID == functions_to_plot[i])$upTime)
+  simplehr_total = sum(filter(simplehr_15min_input, funcID == functions_to_plot[i])$upTime)
+  baseline_sumuptime <- append(baseline_sumuptime, baseline_total)
+  simplehr_sumuptime <- append(simplehr_sumuptime, simplehr_total)
+  baseline_busy = sum(filter(baseline_15min_input, funcID == functions_to_plot[i])$busyTime)
+  simplehr_busy = sum(filter(simplehr_15min_input, funcID == functions_to_plot[i])$busyTime)
+  baseline_sumbusytime <- append(baseline_sumbusytime, baseline_busy)
+  simplehr_sumbusytime <- append(simplehr_sumbusytime, simplehr_busy)
+  baseline_effy <- append(baseline_effy, baseline_busy/baseline_total*100)
+  simplehr_effy <- append(simplehr_effy, simplehr_busy/simplehr_total*100)
+  
+}
+rm(baseline_total)
+rm(baseline_busy)
+rm(simplehr_total)
+rm(simplehr_busy)
+
+total_effy_table <- data.frame(
+  scenario = scenario,
+  baseline_busy = baseline_sumbusytime,
+  simplehr_busy = simplehr_sumbusytime,
+  baseline_up = baseline_sumuptime,
+  simplehr_up = simplehr_sumuptime,
+  baseline_effy = baseline_effy,
+  simplehr_effy = simplehr_effy
+)
+print(total_effy_table)
+
+rm(scenario)
+rm(baseline_sumuptime)
+rm(simplehr_sumuptime)
+rm(baseline_sumbusytime)
+rm(simplehr_sumbusytime)
+rm(baseline_effy)
+rm(simplehr_effy)
+rm(percentage)
 ```

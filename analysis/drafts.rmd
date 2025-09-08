@@ -260,22 +260,26 @@ plot_ecdf("Comparison of ECDF Curves of Experiments", data.frame(
 
 plot_replicas_alive(
   bind_rows(srh = results_data$shr_sel, baseline = results_data$baseline_sel, .id = "scenario"),
+  c("gci", "rh", "rho", "vanilla"),
   scenario_col = "scenario",
   title = "Simple HR n Baseline Replicas Active: idletime15.0, tlprobp95"
 )
 plot_replicas_alive(
   bind_rows(gci = results_data$gci_sel, baseline = results_data$baseline_sel, .id = "scenario"),
+  c("gci", "rh", "rho", "vanilla"),
   scenario_col = "scenario",
   title = "GCI n Baseline Replicas Active: idletime15.0, tlprobp95"
 )
 plot_replicas_alive(
   bind_rows(srh = results_data$shr_sel, drh = results_data$dhr_sel, .id = "scenario"),
+  c("gci", "rh", "rho", "vanilla"),
   scenario_col = "scenario",
   title = "Simple n Delayed HR Replicas Active: idletime15.0, tlprobp95"
 )
 
 plot_replicas_alive(
   bind_rows(baseline = results_data$baseline_sel, rh = results_data$shr_sel, rho = results_data$dhr_sel, gci = results_data$gci_sel, .id = "scenario"),
+  c("gci", "rh", "rho", "vanilla"),
   scenario_col = "scenario",
   title = "All TLTT Replicas Active: idletime15.0, tlprobp95"
 )

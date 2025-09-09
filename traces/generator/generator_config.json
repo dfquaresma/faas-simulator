@@ -24,7 +24,7 @@
       "bernoulli": {
         "latency": 1.0,
         "tailLatency": 10.0,
-        "prob": 0.1
+        "prob": 0.05
       },
       "poisson": {
         "lambda": 4.0

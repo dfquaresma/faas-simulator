@@ -77,7 +77,7 @@ func (p *provisioner) triggerTechnique(i *model.Invocation) (bool, float64) {
 }
 
 func (p *provisioner) getTechniqueDelay(i *model.Invocation) float64 {
-	return p.technique.getDelay(i)
+	return p.technique.getTechniqueDelay(i)
 }
 
 func (p *provisioner) terminate() {

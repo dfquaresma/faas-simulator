@@ -37,39 +37,62 @@ func (t *technique) newLatency(id string) float64 {
 }
 
 func (t *technique) trigger(i *model.Invocation) (bool, float64) {
+	iCopy := model.CopyInvocation(i)
+	copyReplicaIsWarm := false
 	switch t.config {
-	case "simplehr", "delayedhr":
+	case "simplehr", "delayedhr", "optimizedhr":
 		if !i.IsCopy() {
-			iCopy := model.CopyInvocation(i)
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
-			t.provisioner.getAvailableReplica().process(iCopy)
+			replica := t.provisioner.getAvailableReplica()
+			copyReplicaIsWarm = replica.getRequestCount() != 0
+			replica.process(iCopy)
 		}
 
 	case "gci":
 		if !i.IsColdStart() && i.IsTailLatency() {
-			iCopy := model.CopyInvocation(i)
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
 			if i.IsCopy() {
-				// we may shedding multiple times, thus fix source invocation ref
+				// we may shed multiple times, thus fix the source invocation ref to the latest shed
 				iCopy.UpdateSource(i)
 			}
 			t.provisioner.getAvailableReplica().process(iCopy)
-			return true, i.GetTailLatencyThreshold()
+			return true, i.GetDuration() - i.GetTailLatencyThreshold()
 		}
 	}
+
+	switch t.config {
+	case "optimizedhr":
+		switch i.IsCopy() {
+		// if it is the triggered copy, cancel it if it takes longer than the original
+		case true:
+			if i.GetDuration() > i.GetSrcInvoc().GetDuration() {
+				return true, i.GetSrcInvoc().GetDuration()
+			}
+		// if it is the original, cancel it if it takes longer than the copy
+		// but only if copy was sent to a warm replica and has no coldstart
+		case false:
+			if i.GetDuration() > iCopy.GetDuration() && copyReplicaIsWarm {
+				return true, iCopy.GetDuration()
+			}
+		}
+
+	case "gci":
+		return true, i.GetDuration() - i.GetTailLatencyThreshold()
+	}
+
 	return false, 0
 }
 
-func (t *technique) getDelay(i *model.Invocation) float64 {
+func (t *technique) getTechniqueDelay(i *model.Invocation) float64 {
 	switch t.config {
-	case "DelayedHR":
-		return i.GetTailLatencyThreshold()
-
-	default:
-		return 0
+	case "DelayedHR", "optimizedhr":
+		if !i.IsCopy() {
+			return i.GetTailLatencyThreshold()
+		}
 	}
+	return 0
 }
 
 func (t *technique) processResponse(i *model.Invocation) {

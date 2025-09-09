@@ -24,7 +24,7 @@ type replica struct {
 	lastWorkTS     float64
 	busyTime       float64
 	upTime         float64
-	reqsProcessed  int
+	reqsCount      int
 }
 
 func newReplica(p *provisioner, rid, aid, fid string, cfg model.Config) *replica {
@@ -55,7 +55,7 @@ func (r *replica) Run() {
 		r.arrivalCond.Wait(true)
 		if r.arrivalQueue.Len() > 0 {
 			i := r.arrivalQueue.Get().(*model.Invocation)
-			if r.reqsProcessed == 0 {
+			if r.reqsCount == 0 {
 				i.SetAsColdStart()
 			}
 
@@ -97,7 +97,7 @@ func (r *replica) Run() {
 			i.AddProcessedTs(r.lastWorkTS)
 
 			r.provisioner.response(i)
-			r.reqsProcessed += 1
+			r.reqsCount += 1
 		}
 
 		if r.arrivalQueue.Len() == 0 {
@@ -126,6 +126,10 @@ func (r *replica) terminate() {
 	r.arrivalCond.Set(true)
 }
 
+func (r *replica) getRequestCount() int {
+	return r.reqsCount
+}
+
 func (r *replica) getOutPut() []string {
 	return []string{
 		r.replicaID,
@@ -134,7 +138,7 @@ func (r *replica) getOutPut() []string {
 		r.funcID,
 		strconv.FormatFloat(r.busyTime, 'f', -1, 64),
 		strconv.FormatFloat(r.upTime, 'f', -1, 64),
-		strconv.Itoa(r.reqsProcessed),
+		strconv.Itoa(r.reqsCount),
 		strconv.FormatFloat(r.lastWorkTS, 'f', -1, 64),
 		strconv.FormatFloat(r.startTS, 'f', -1, 64),
 		strconv.FormatFloat(r.shutdownTS, 'f', -1, 64),

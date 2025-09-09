@@ -170,7 +170,7 @@ func extractPercentiles(row []string) (float64, float64, float64, float64, float
 }
 
 func (i *Invocation) IsTailLatency() bool {
-	return i.GetDuration() > i.te.tlthreshold
+	return i.GetDuration() > i.GetTailLatencyThreshold()
 }
 
 func (i *Invocation) IsCopy() bool {

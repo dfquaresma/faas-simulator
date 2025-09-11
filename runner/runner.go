@@ -33,7 +33,7 @@ func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, id
 			}
 		}
 	}
-	fmt.Printf("Total Simulation Time: %\n", time.Since(start))
+	fmt.Printf("Total Simulation Time: %s\n", time.Since(start))
 }
 
 func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, count, total int) []string {

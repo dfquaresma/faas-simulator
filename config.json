@@ -6,7 +6,7 @@
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
       "idletime": [-1, 0, 900],
-      "technique": ["baseline", "simplehr", "delayedhr"]
+      "technique": ["baseline", "simplehr", "delayedhr", "optimizedhr"]
     }
   },
   "azure": {
@@ -16,7 +16,7 @@
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
       "idletime": [-1, 0, 900],
-      "technique": ["baseline", "simplehr", "delayedhr"]
+      "technique": ["baseline", "simplehr", "delayedhr", "optimizedhr"]
     }
   }
 }

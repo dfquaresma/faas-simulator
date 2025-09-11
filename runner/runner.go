@@ -33,7 +33,7 @@ func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, id
 			}
 		}
 	}
-	fmt.Printf("Total Simulation Time: %s", time.Since(start))
+	fmt.Printf("Total Simulation Time: %\n", time.Since(start))
 }
 
 func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeFloat float64, count, total int) []string {
@@ -72,13 +72,12 @@ func simulate(tracePath, outputPath, prob, technique string, fLatency, idleTimeF
 	replayer.Run()
 	fmt.Println("\n..Simulation for " + simulationName + " is finished")
 
-	techniqueOutputPath := outputPath + technique + "/"
-	fmt.Println("Writing results at " + techniqueOutputPath)
-	io.WriteOutput(techniqueOutputPath, simulationName+"-invocations.csv", invocations.GetOutPut())
+	fmt.Println("Writing results at " + outputPath)
+	io.WriteOutput(outputPath, simulationName+"-invocations.csv", invocations.GetOutPut())
 
 	replicasOutput, selectorOutput := router.GetOutPut()
-	io.WriteOutput(techniqueOutputPath, simulationName+"-replicas.csv", replicasOutput)
-	io.WriteOutput(techniqueOutputPath, simulationName+"-provisioners.csv", selectorOutput)
+	io.WriteOutput(outputPath, simulationName+"-replicas.csv", replicasOutput)
+	io.WriteOutput(outputPath, simulationName+"-provisioners.csv", selectorOutput)
 	fmt.Println("Results for " + simulationName + " was written\n")
 
 	return replayer.GetOutPut()

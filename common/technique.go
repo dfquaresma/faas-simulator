@@ -57,8 +57,8 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 				// we may shed multiple times, thus fix the source invocation ref to the latest shed
 				iCopy.UpdateSource(i)
 			}
+			i.UpdateShedTimes()
 			t.provisioner.getAvailableReplica().process(iCopy)
-			return true, i.GetDuration() - i.GetTailLatencyThreshold()
 		}
 	}
 
@@ -87,7 +87,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 
 func (t *technique) getTechniqueDelay(i *model.Invocation) float64 {
 	switch t.config {
-	case "DelayedHR", "optimizedhr":
+	case "delayedhr", "optimizedhr":
 		if !i.IsCopy() {
 			return i.GetTailLatencyThreshold()
 		}

@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Invocation struct {
@@ -26,13 +25,14 @@ type traceEntry struct {
 }
 
 type invocationMetadata struct {
-	invocationId          string
-	forwardedTs           []float64
-	processedTs           []float64
+	invocationId string
+
 	responseTime          float64
 	techniqueResponseTime float64
-	hopIds                []string
-	hopDelays             []float64
+
+	forwardedTs float64
+	processedTs float64
+	shedTimes   int64
 
 	srcInvoc *Invocation
 }
@@ -71,11 +71,7 @@ func CopyInvocation(i *Invocation) *Invocation {
 		},
 		im: invocationMetadata{
 			invocationId: i.im.invocationId,
-			forwardedTs:  i.im.forwardedTs,
-			processedTs:  i.im.processedTs,
 			responseTime: i.im.responseTime,
-			hopIds:       []string{},
-			hopDelays:    []float64{},
 			srcInvoc:     i,
 		},
 	}
@@ -181,27 +177,28 @@ func (i *Invocation) IsColdStart() bool {
 	return i.GetDuration() >= i.GetColdStart()
 }
 
-func (i *Invocation) AddProcessedTs(pt float64) {
-	i.im.processedTs = append(i.im.processedTs, pt)
-}
-
-func (i *Invocation) UpdateTechniqueResponseTime(iCopy *Invocation) {
-	i.im.processedTs = append(i.im.processedTs, iCopy.im.processedTs...)
-	i.im.forwardedTs = append(i.im.forwardedTs, iCopy.im.forwardedTs...)
-	i.im.techniqueResponseTime = iCopy.im.processedTs[0] - i.im.forwardedTs[0]
-}
-
-func (i Invocation) UpdateSource(src *Invocation) {
+func (i *Invocation) UpdateSource(src *Invocation) {
 	i.im.srcInvoc = src
 }
 
-func (i *Invocation) UpdateResponse(hopResponse float64, replicaID string) {
+func (i *Invocation) UpdateShedTimes() {
+	i.im.shedTimes += 1
+}
+
+func (i *Invocation) UpdateResponse(hopResponse float64) {
 	i.im.responseTime += hopResponse
-	if i.IsCopy() {
-		i = i.im.srcInvoc
-	}
-	i.im.hopIds = append(i.im.hopIds, replicaID)
-	i.im.hopDelays = append(i.im.hopDelays, hopResponse)
+}
+
+func (i *Invocation) UpdateTechniqueResponseTime(iCopy *Invocation) {
+	i.im.techniqueResponseTime = iCopy.im.processedTs - i.im.forwardedTs
+}
+
+func (i *Invocation) SetProcessedTs(pt float64) {
+	i.im.processedTs = pt
+}
+
+func (i *Invocation) SetForwardedTs(ft float64) {
+	i.im.forwardedTs = ft
 }
 
 func (i *Invocation) SetAsColdStart() {
@@ -210,10 +207,6 @@ func (i *Invocation) SetAsColdStart() {
 
 func (i *Invocation) SetDuration(nd float64) {
 	i.te.duration = nd
-}
-
-func (i *Invocation) SetForwardedTs(ft float64) {
-	i.im.forwardedTs = append(i.im.forwardedTs, ft)
 }
 
 func (i *Invocation) GetTailLatencyThreshold() float64 {
@@ -256,35 +249,19 @@ func (i *Invocation) GetP999() float64 {
 }
 
 func (i *Invocation) getOutPut() []string {
-	forwardedTsStr := make([]string, len(i.im.forwardedTs))
-	for i, f := range i.im.forwardedTs {
-		forwardedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
-	}
-	processedTsStr := make([]string, len(i.im.processedTs))
-	for i, f := range i.im.processedTs {
-		processedTsStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
-	}
-	hopDelaysStr := make([]string, len(i.im.hopDelays))
-	for i, f := range i.im.hopDelays {
-		hopDelaysStr[i] = strconv.FormatFloat(f, 'f', -1, 64)
-	}
-
 	return []string{
 		i.te.appID,
 		i.te.funcID,
-		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
-		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
-		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
 		i.im.invocationId,
 
-		strings.Join(forwardedTsStr, ";"),
-		strings.Join(processedTsStr, ";"),
+		strconv.FormatFloat(i.te.endTS, 'f', -1, 64),
+		strconv.FormatFloat(i.te.startTS, 'f', -1, 64),
+		strconv.FormatFloat(i.te.tlthreshold, 'f', -1, 64),
+
+		strconv.FormatFloat(i.te.duration, 'f', -1, 64),
 		strconv.FormatFloat(i.im.responseTime, 'f', -1, 64),
 		strconv.FormatFloat(i.im.techniqueResponseTime, 'f', -1, 64),
 
-		strconv.FormatFloat(i.te.tlthreshold, 'f', -1, 64),
-		strconv.FormatInt(int64(len(i.im.forwardedTs)), 10),
-		strings.Join(i.im.hopIds, ";"),
-		strings.Join(hopDelaysStr, ";"),
+		strconv.FormatInt(i.im.shedTimes, 10),
 	}
 }

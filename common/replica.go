@@ -62,39 +62,44 @@ func (r *replica) Run() {
 			forwardLatency := r.cfg.ForwardLatency
 			if forwardLatency != 0 {
 				godes.Advance(forwardLatency)
+				r.busyTime += forwardLatency
+				i.UpdateResponse(forwardLatency)
 			}
-			i.UpdateResponse(forwardLatency, r.replicaID)
 
 			delay := r.provisioner.getTechniqueDelay(i)
-			if delay != 0 {
-				godes.Advance(delay)
-				r.busyTime += delay
-				i.UpdateResponse(delay, r.replicaID)
-			}
-			dur := i.GetDuration() - delay // dur is now the surplus latency after delay to warn TLTT
-
-			shouldTimeout, timeToTimeout := r.provisioner.triggerTechnique(i)
-			if shouldTimeout {
-				godes.Advance(timeToTimeout)
-				r.busyTime += timeToTimeout
-				r.lastWorkTS = godes.GetSystemTime()
-
-				if r.terminatedCond.GetState() {
-					r.setUptimeStats()
-					break
+			dur := i.GetDuration()
+			if dur-delay >= 0 {
+				if delay != 0 {
+					godes.Advance(delay)
+					r.busyTime += delay
+					i.UpdateResponse(delay)
 				}
+				dur = i.GetDuration() - delay // dur is now the surplus latency after delay to warn TLTT
 
-				r.isBusy.Set(false)
-				r.provisioner.setAvailable(r)
-				continue
+				shouldTimeout, timeToTimeout := r.provisioner.triggerTechnique(i)
+				if shouldTimeout {
+					godes.Advance(timeToTimeout)
+					r.busyTime += timeToTimeout
+					r.lastWorkTS = godes.GetSystemTime()
+
+					if r.terminatedCond.GetState() {
+						r.setUptimeStats()
+						break
+					}
+
+					r.isBusy.Set(false)
+					r.provisioner.setAvailable(r)
+					continue
+				}
 			}
 
 			godes.Advance(dur)
-			i.UpdateResponse(dur, r.replicaID)
-
 			r.busyTime += dur
+
+			i.UpdateResponse(dur)
+
 			r.lastWorkTS = godes.GetSystemTime()
-			i.AddProcessedTs(r.lastWorkTS)
+			i.SetProcessedTs(r.lastWorkTS)
 
 			r.provisioner.response(i)
 			r.reqsCount += 1
@@ -103,7 +108,6 @@ func (r *replica) Run() {
 		if r.arrivalQueue.Len() == 0 {
 			if r.terminatedCond.GetState() {
 				r.setUptimeStats()
-				r.provisioner.notifyTermination(r.funcID, godes.GetSystemTime())
 				break
 			}
 			r.arrivalCond.Set(false)
@@ -118,6 +122,7 @@ func (r *replica) setUptimeStats() {
 	if r.cfg.Idletime >= 0 {
 		r.shutdownTS = math.Min(r.shutdownTS, r.lastWorkTS+r.cfg.Idletime)
 	}
+	r.provisioner.notifyTermination(r.funcID, r.shutdownTS)
 	r.upTime = r.shutdownTS - r.startTS
 }
 

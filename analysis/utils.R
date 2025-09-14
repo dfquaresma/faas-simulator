@@ -394,13 +394,13 @@ plot_replicas_alive <- function(df, snames, scenario_col = "scenario", title = "
     geom_line(size = 0.5) +
     geom_point(size = 0.5) +
     scale_color_manual(values = setNames(
-      c("limegreen", "orange", "blue", "red"),
-      snames[1:4]
+      c("limegreen", "orange", "blue", "red", "purple", "cyan3"),
+      snames[1:6]
     )) +
     scale_fill_manual(values=hcl(100, 65, alpha=c(1, 1, 1, 1))) +
     scale_linetype_manual(values = setNames(
-      c("solid", "dotted", "dotdash", "dashed"),
-      snames[1:4]
+      c("solid", "dotted", "dotdash", "dashed", "longdash", "twodash"),
+      snames[1:6]
     )) +
     scale_x_datetime(
       date_labels = "%d %b\n%H:%M",   # e.g. "01 Jan\n12:00"

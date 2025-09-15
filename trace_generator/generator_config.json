@@ -16,7 +16,7 @@
     "weibull",
     "logNormal"
   ],
-  "outputPath": "./",
+  "outputPath": "../traces/generator",
     "distributions": {
       "constant": {
         "latency": 5.0

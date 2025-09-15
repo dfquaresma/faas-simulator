@@ -97,8 +97,6 @@ rm(lognormal_simple)
 rm(weibull_simple)
 ```
 
-The Latency Improvement Comparison table shows both the improvements for latency and the total latency processed by each technique in the system to achieve the latency the user would perceive. Note that while latency were improved from ~30% up to 75%, the "cost" of it (meaning the total latency processed to achieve this goal), the total latency was almost twice for all function with simplehr technique. Improvement column is always simplehr in comparison for baseline, thus positive values means simplehr is better, negative otherwise.
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(knitr)
 library(kableExtra)
@@ -141,6 +139,8 @@ kable(latency_table,
       caption = "Simple Model Latency Improvement Comparison") %>%
   kable_styling(full_width = FALSE, position = "center")
 ```
+
+The Latency Improvement Comparison table shows both the improvements for latency and the total latency processed by each technique in the system to achieve the latency the user would perceive. Note that while latency were improved from ~30% up to 75%, the "cost" of it (meaning the total latency processed to achieve this goal), the total latency was almost twice for all function with simplehr technique. Improvement column is always simplehr in comparison for baseline, thus positive values means simplehr is better, negative otherwise.
 
 \newpage
 ## TLDR using tables for results using faas-simulator  

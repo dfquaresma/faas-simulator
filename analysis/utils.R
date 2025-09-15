@@ -193,7 +193,7 @@ plot_histogram <- function(df1, df2, df1_name, df2_name, title, colors) {
               aes(x = p100, y = y_pos, label = "P100"), 
               color = colors[6], vjust = 1.5, hjust = -0.1, size = 3, fontface = "bold", angle = 90) +
     
-    labs(title = paste("Histograms of Latencies for ", title),
+    labs(title = title,
          x = "Duration",
          y = "Frequency",
          caption = "Solid lines: P50 (Median values) | Dashed lines: P999 | Dotted lines: P100 (Maximum values)") +
@@ -307,7 +307,7 @@ plot_histogram_fortail <- function(df1, df2, df1_name, df2_name, title, colors) 
               aes(x = p100, y = y_pos, label = "P100"), 
               color = colors[6], vjust = 1.5, hjust = -0.1, size = 3, fontface = "bold", angle = 90) +
     
-    labs(title = paste("Histograms of Tail Latencies for ", title),
+    labs(title = title,
          x = "Duration",
          y = "Frequency",
          caption = "Solid lines: P50 (Median values) | Dashed lines: P999 | Dotted lines: P100 (Maximum values)") +

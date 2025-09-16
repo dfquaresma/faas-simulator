@@ -12,8 +12,6 @@ The selected functions latencies to be studied here are described using discrete
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 source("utils.R")
-trace_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generator/"
-sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/"
 
 load_sim_results <- function(file_sufix) {
   technique = "baseline"
@@ -77,8 +75,8 @@ titles <- c(
 #rm(generated_input_filtered)
 ```
 
-## Results evaluation of Simple Latency Model Simulator
-Simple Latency Model Simulator is a simplified version that does not considers coldstart or replica management impact. It only generated latencies for baseline and simplehr. It generates one latency value for baseline and two for simplehr, we compare the lower latency generated for simplehr with the one for baseline aiming for latency improvement evaluation, and compare the sum of the generated latencies for simplehr vs the one generetated for baseline to estimate the impact.  
+## Results evaluation for Simple Latency Model Simulator
+Simple Latency Model Simulator is a simplified version that does not considers coldstart or replica management impact. It only generated latencies for baseline and simplehr. It generates one latency value for baseline and two for simplehr, we compare the lower latency generated for simplehr with the one for baseline aiming for latency improvement evaluation, and compare the sum of the generated latencies for simplehr vs the one generetated for baseline to estimate the resource impact.  
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 simple_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/simple/"
@@ -103,41 +101,90 @@ library(kableExtra)
 
 scenario <- c()
 baseline_latency <- c()
-simplehr_latency <- c()
-percentage <- c()
+naive_hedge_latency <- c()
+delayed_naive_hedge_latency <- c()
+immediate_hedged_requests_latency <- c()
+hedged_requests_latency <- c()
+
+improvement_naive_hedge <- c()
+improvement_delayed_naive_hedge <- c()
+improvement_immediate_hedged_requests <- c()
+improvement_hedged_requests <- c()
 for (i in 1:length(functions_to_plot)) {
   baseline_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$duration
-  simplehr_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "simplehr")$duration
-  scenario <- append(scenario, paste("func", titles[i], "latency", sep="-"))
+  naive_hedge_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "naive_hedge")$duration
+  delayed_naive_hedge_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$duration
+  immediate_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "immediate_hedged_requests")$duration
+  hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests")$duration
+  
+  scenario <- append(scenario, paste(titles[i], "latency", sep="-"))
   baseline_latency <- append(baseline_latency, sum(baseline_response))
-  simplehr_latency <- append(simplehr_latency, sum(simplehr_response))
-  percentage <- append(percentage, (1-sum(simplehr_response)/sum(baseline_response))*100)
-  #print(summary_table(baseline_response, "baseline INF", simplehr_response,"simplehr INF"))
+  naive_hedge_latency <- append(naive_hedge_latency, sum(naive_hedge_response))
+  delayed_naive_hedge_latency <- append(delayed_naive_hedge_latency, sum(delayed_naive_hedge_response))
+  immediate_hedged_requests_latency <- append(immediate_hedged_requests_latency, sum(immediate_hedged_requests_response))
+  hedged_requests_latency <- append(hedged_requests_latency, sum(hedged_requests_response))
+  
+  improvement_naive_hedge <- append(improvement_naive_hedge, (1-sum(naive_hedge_response)/sum(baseline_response))*100)
+  improvement_delayed_naive_hedge <- append(improvement_delayed_naive_hedge, (1-sum(delayed_naive_hedge_response)/sum(baseline_response))*100)
+  improvement_immediate_hedged_requests <- append(improvement_immediate_hedged_requests, (1-sum(immediate_hedged_requests_response)/sum(baseline_response))*100)
+  improvement_hedged_requests <- append(improvement_hedged_requests, (1-sum(hedged_requests_response)/sum(baseline_response))*100)
   
   baseline_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$total_duration
-  simplehr_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "simplehr")$total_duration
-  scenario <- append(scenario, paste("func", titles[i], "totalLatency", sep="-"))
+  naive_hedge_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "naive_hedge")$total_duration
+  delayed_naive_hedge_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$total_duration
+  immediate_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "immediate_hedged_requests")$total_duration
+  hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests")$total_duration
+
+  scenario <- append(scenario, paste(titles[i], "totalLatency", sep="-"))
   baseline_latency <- append(baseline_latency, sum(baseline_response))
-  simplehr_latency <- append(simplehr_latency, sum(simplehr_response))
-  percentage <- append(percentage, (1-sum(simplehr_response)/sum(baseline_response))*100)
-  #print(summary_table(baseline_response, "baseline INF", simplehr_response,"simplehr INF"))
+  naive_hedge_latency <- append(naive_hedge_latency, sum(naive_hedge_response))
+  delayed_naive_hedge_latency <- append(delayed_naive_hedge_latency, sum(delayed_naive_hedge_response))
+  immediate_hedged_requests_latency <- append(immediate_hedged_requests_latency, sum(immediate_hedged_requests_response))
+  hedged_requests_latency <- append(hedged_requests_latency, sum(hedged_requests_response))
+
+  improvement_naive_hedge <- append(improvement_naive_hedge, (1-sum(naive_hedge_response)/sum(baseline_response))*100)
+  improvement_delayed_naive_hedge <- append(improvement_delayed_naive_hedge, (1-sum(delayed_naive_hedge_response)/sum(baseline_response))*100)
+  improvement_immediate_hedged_requests <- append(improvement_immediate_hedged_requests, (1-sum(immediate_hedged_requests_response)/sum(baseline_response))*100)
+  improvement_hedged_requests <- append(improvement_hedged_requests, (1-sum(hedged_requests_response)/sum(baseline_response))*100)
 
 }
 rm(baseline_response)
-rm(simplehr_response)
+rm(naive_hedge_response)
+rm(delayed_naive_hedge_response)
+rm(immediate_hedged_requests_response)
+rm(hedged_requests_response)
 
 latency_table <- data.frame(
   scenario = scenario,
-  baseline = baseline_latency,
-  simplehr = simplehr_latency,
-  improvement = percentage
+#  baseline = baseline_latency,
+#  naive_hedge = naive_hedge_latency,
+   naive_hedge = improvement_naive_hedge,
+#  delayed_naive_hedge = delayed_naive_hedge_latency,
+   delayed_naive_hedge = improvement_delayed_naive_hedge,
+#  immediate_hedged_requests = immediate_hedged_requests_latency,
+   immediate_hedged_requests = improvement_immediate_hedged_requests,
+#  hedged_requests = hedged_requests_latency,
+   hedged_requests = improvement_hedged_requests
 )
+
+
 kable(latency_table, 
       format = if (knitr::is_latex_output()) "latex" else "html",
       booktabs = TRUE, 
       digits = 2,
-      caption = "Simple Model Latency Improvement Comparison") %>%
+      caption = "Simple Model Latency Improvement Table") %>%
   kable_styling(full_width = FALSE, position = "center")
+
+rm(scenario)
+rm(baseline_latency)
+rm(naive_hedge_latency)
+rm(delayed_naive_hedge_latency)
+rm(immediate_hedged_requests_latency)
+rm(hedged_requests_latency)
+rm(improvement_naive_hedge)
+rm(improvement_delayed_naive_hedge)
+rm(improvement_immediate_hedged_requests)
+rm(improvement_hedged_requests)
 ```
 
 The Latency Improvement Comparison table shows both the improvements for latency and the total latency processed by each technique in the system to achieve the latency the user would perceive. Note that while latency were improved from ~30% up to 75%, the "cost" of it (meaning the total latency processed to achieve this goal), the total latency was almost twice for all function with simplehr technique. Improvement column is always simplehr in comparison for baseline, thus positive values means simplehr is better, negative otherwise.
@@ -348,6 +395,9 @@ In this section we will performe a series for latency evaluations. Each comparis
 These histograms compare the synthetic traces with the simulated baseline response times (with infinite idletime). The purpose is to validate the fidelity of the simulator against the trace input. We use infinite idletime here to reduce coldstart influence at maximum. The expected difference here observed is that for each coldstart simulated, the baseline simulated tail latency go towards p100. As shown in the histograms, the overall latency distribution is similar, but the expected coldstart present in simulation make the distribution divergence visually for lognormal and weibull on histogram plots starting after p99.
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+trace_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generator/"
+sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/"
+
 generated_input = read.csv(paste(trace_results_path, "all_generated_preprocessed-final.csv", sep=""))
 #generated_input$time_readable <- as.POSIXct(generated_input$target_timestamp, origin = "2021-01-31", tz = "UTC")
 

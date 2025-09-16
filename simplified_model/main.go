@@ -42,22 +42,30 @@ func generate(requests_count int, interarrival_distname, servicetime_distname, o
 	ts := 0.0
 	generated_app := interarrival_distname + "-" + servicetime_distname + "-app"
 	generated_func := interarrival_distname + "-" + servicetime_distname + "-func"
-	workload := [][]string{{"technique", "app", "func", "end_timestamp", "response_time", "total_time_running_functions"}}
+	workload := [][]string{{
+		"technique", "app", "func",
+		"end_timestamp", "response_time", "total_time_running_functions",
+		"service_time", "copy_service_time", "delay"},
+	}
 	for i := 0; i < requests_count; i++ {
 		ts = ts + interarrival_dist.nextValue()
+		service_time := servicetime_dist.nextValue()
+		copy_service_time := servicetime_dist.nextValue()
 
-		workload = append(workload, getBaseline(servicetime_dist, ts, generated_app, generated_func))
-		workload = append(workload, getNaiveHedged(servicetime_dist, ts, generated_app, generated_func))
-		workload = append(workload, getHedgedRequestNoDelay(servicetime_dist, ts, generated_app, generated_func))
-		workload = append(workload, getHedgedRequestDelayP95(servicetime_dist, ts, generated_app, generated_func))
-		workload = append(workload, getHedgedRequestDelayP99(servicetime_dist, ts, generated_app, generated_func))
+		workload = append(workload, getBaseline(service_time, ts, generated_app, generated_func))
+		workload = append(workload, getNaiveHedgedNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getDelayedNaiveHedged(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestDelayP95(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestDelayP99(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getPerfectHedgedRequest(service_time, copy_service_time, ts, generated_app, generated_func))
+
 	}
 	outputName := "latency_" + servicetime_distname + "-arrival_" + interarrival_distname + ".csv"
 	io.WriteOutput(outputPath, outputName, workload)
 }
 
-func getBaseline(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
-	service_time := servicetime_dist.nextValue()
+func getBaseline(service_time, ts float64, generated_app, generated_func string) []string {
 	response_time := service_time
 	end_timestamp := ts + response_time
 	total_time_running_functions := response_time // vanilla scenario, send just one and that's all
@@ -68,55 +76,64 @@ func getBaseline(servicetime_dist *distribution, ts float64, generated_app, gene
 		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
 		strconv.FormatFloat(response_time, 'f', -1, 64),
 		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+		strconv.FormatFloat(service_time, 'f', -1, 64),
+		"0",
+		"0",
 	}
 }
 
-func getNaiveHedged(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
-	service_time := servicetime_dist.nextValue()
-	copy_service_time := servicetime_dist.nextValue()
-	delay := 0.0
+func getNaiveHedgedNoDelay(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getNaiveHedged(service_time, copy_service_time, 0, ts, "naive_hedge", generated_app, generated_func)
+}
+
+func getDelayedNaiveHedged(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getNaiveHedged(service_time, copy_service_time, servicetime_dist.getPercentile(0.95), ts, "delayed_naive_hedge", generated_app, generated_func)
+}
+
+func getNaiveHedged(service_time, copy_service_time, delay, ts float64, name, generated_app, generated_func string) []string {
+	// hedge with no cancellation and delay
 	response_time := math.Min(service_time, delay+copy_service_time)
 	end_timestamp := ts + response_time
-	total_time_running_functions := service_time + copy_service_time // send two and process both completely
+	total_time_running_functions := response_time
+	if response_time > delay {
+		total_time_running_functions = service_time + copy_service_time // if a second is sent, process both completely
+	}
 	return []string{
-		"naive_hedge",
+		name,
 		generated_app,
 		generated_func,
 		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
 		strconv.FormatFloat(response_time, 'f', -1, 64),
 		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+		strconv.FormatFloat(service_time, 'f', -1, 64),
+		strconv.FormatFloat(copy_service_time, 'f', -1, 64),
+		strconv.FormatFloat(delay, 'f', -1, 64),
 	}
 }
 
-func getHedgedRequestNoDelay(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
-	service_time := servicetime_dist.nextValue()
-	copy_service_time := servicetime_dist.nextValue()
-	delay := 0.0
-	response_time := math.Min(service_time, delay+copy_service_time)
-	end_timestamp := ts + response_time
-	total_time_running_functions := 2 * response_time // send two but cancels the longer after the shorter finishes
-	return []string{
-		"hedged_requests_nodelay",
-		generated_app,
-		generated_func,
-		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-		strconv.FormatFloat(response_time, 'f', -1, 64),
-		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+func getHedgedRequestNoDelay(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getHedgedRequest(service_time, copy_service_time, 0, ts, "hedged_requests_nodelay", generated_app, generated_func)
+}
+
+func getHedgedRequestDelayP95(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getHedgedRequest(service_time, copy_service_time, servicetime_dist.getPercentile(0.95), ts, "hedged_requests_p95", generated_app, generated_func)
+}
+
+func getHedgedRequestDelayP99(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getHedgedRequest(service_time, copy_service_time, servicetime_dist.getPercentile(0.99), ts, "hedged_requests_p99", generated_app, generated_func)
+}
+
+func getPerfectHedgedRequest(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	// hedge with cancellation and perfect delay
+	delay := 0.0 // assume copy_service_time is lower than service_time and send it right away.
+	if service_time < copy_service_time {
+		delay = service_time + 1.0 // if service_time is smaller than copy_service_time, set delay above it to avoid sending a copy
 	}
+	return getHedgedRequest(service_time, copy_service_time, delay, ts, "perfect_hedged_requests", generated_app, generated_func)
 }
 
-func getHedgedRequestDelayP95(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
-	return getHedgedRequest(servicetime_dist, 0.95, ts, "hedged_requests_p95", generated_app, generated_func)
-}
-
-func getHedgedRequestDelayP99(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
-	return getHedgedRequest(servicetime_dist, 0.99, ts, "hedged_requests_p99", generated_app, generated_func)
-}
-
-func getHedgedRequest(servicetime_dist *distribution, p, ts float64, name, generated_app, generated_func string) []string {
-	service_time := servicetime_dist.nextValue()
-	copy_service_time := servicetime_dist.nextValue()
-	delay := servicetime_dist.getPercentile(p)
+func getHedgedRequest(service_time, copy_service_time, delay, ts float64, name, generated_app, generated_func string) []string {
+	// hedge with cancellation and delay
 	response_time := math.Min(service_time, delay+copy_service_time)
 	end_timestamp := ts + response_time
 	total_time_running_functions := response_time
@@ -131,6 +148,9 @@ func getHedgedRequest(servicetime_dist *distribution, p, ts float64, name, gener
 		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
 		strconv.FormatFloat(response_time, 'f', -1, 64),
 		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+		strconv.FormatFloat(service_time, 'f', -1, 64),
+		strconv.FormatFloat(copy_service_time, 'f', -1, 64),
+		strconv.FormatFloat(delay, 'f', -1, 64),
 	}
 }
 

@@ -62,11 +62,10 @@ type distribution struct {
 	dist         string
 	latency      float64
 	tail_latency float64
-	prob         float64
+	b            distuv.Bernoulli
 	ln           distuv.LogNormal
 	ps           distuv.Poisson
 	wb           distuv.Weibull
-	rng          *rand.Rand
 }
 
 func newDistribution(dist string) *distribution {
@@ -81,8 +80,10 @@ func newDistribution(dist string) *distribution {
 			dist:         dist,
 			latency:      viper.GetFloat64("distributions.bernoulli.latency"),
 			tail_latency: viper.GetFloat64("distributions.bernoulli.tailLatency"),
-			prob:         viper.GetFloat64("distributions.bernoulli.prob"),
-			rng:          rand.New(rand.NewSource(uint64(time.Now().Nanosecond()))),
+			b: distuv.Bernoulli{
+				P:   viper.GetFloat64("distributions.bernoulli.prob"),
+				Src: rand.NewSource(uint64(time.Now().Nanosecond())),
+			},
 		}
 	case "poisson":
 		return &distribution{
@@ -118,13 +119,11 @@ func newDistribution(dist string) *distribution {
 func (d *distribution) nextValue() float64 {
 	switch d.dist {
 	case "bernoulli":
-		latency := d.latency
-		if d.rng.Float64() >= 1-d.prob {
-			latency = d.tail_latency
+		if d.b.Rand() == 0 {
+			return d.latency
+		} else {
+			return d.tail_latency
 		}
-		return latency
-	case "poisson":
-		return d.ps.Rand()
 	case "weibull":
 		return d.wb.Rand()
 	case "logNormal":

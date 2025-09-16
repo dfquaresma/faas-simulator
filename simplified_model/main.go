@@ -45,29 +45,72 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 	workload := [][]string{{"technique", "app", "func", "end_timestamp", "duration", "total_duration"}}
 	for i := 0; i < requests_count; i++ {
 		ts = ts + interarrival.nextValue()
+
 		duration := latency.nextValue()
-		end_timestamp := ts + duration
+		minDuration := duration
+		end_timestamp := ts + minDuration
+		total := minDuration // vanilla scenario, send just one and that's all
 		workload = callAppend(
 			workload,
 			"baseline",
 			generated_app,
 			generated_func,
 			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(duration, 'f', -1, 64),
-			strconv.FormatFloat(duration, 'f', -1, 64),
+			strconv.FormatFloat(minDuration, 'f', -1, 64),
+			strconv.FormatFloat(total, 'f', -1, 64),
 		)
 
-		duration = latency.nextValue()
-		copyDuration := latency.nextValue()
-		end_timestamp = ts + math.Min(duration, copyDuration)
+		copy_duration := latency.nextValue()
+		minDuration = math.Min(duration, copy_duration)
+		end_timestamp = ts + minDuration
+		total = duration + copy_duration // send two and process both completely
 		workload = callAppend(
 			workload,
-			"simplehr",
+			"naive_hedge",
 			generated_app,
 			generated_func,
 			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(math.Min(duration, copyDuration), 'f', -1, 64),
-			strconv.FormatFloat(duration+copyDuration, 'f', -1, 64),
+			strconv.FormatFloat(minDuration, 'f', -1, 64),
+			strconv.FormatFloat(total, 'f', -1, 64),
+		)
+
+		total = 2 * minDuration // send two but cancels the longer after the shorter finishes
+		workload = callAppend(
+			workload,
+			"immediate_hedged_requests",
+			generated_app,
+			generated_func,
+			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+			strconv.FormatFloat(minDuration, 'f', -1, 64),
+			strconv.FormatFloat(total, 'f', -1, 64),
+		)
+
+		delay := latency.getP95()
+		minDuration = math.Min(duration, delay+copy_duration)
+		end_timestamp = ts + minDuration
+		total = duration + copy_duration // send two and process both completely
+		workload = callAppend(
+			workload,
+			"delayed_naive_hedge",
+			generated_app,
+			generated_func,
+			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+			strconv.FormatFloat(minDuration, 'f', -1, 64),
+			strconv.FormatFloat(total, 'f', -1, 64),
+		)
+
+		total = minDuration
+		if duration > delay {
+			total += minDuration - delay // duplicates only after delay until the first finish
+		}
+		workload = callAppend(
+			workload,
+			"hedged_requests",
+			generated_app,
+			generated_func,
+			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+			strconv.FormatFloat(minDuration, 'f', -1, 64),
+			strconv.FormatFloat(total, 'f', -1, 64),
 		)
 	}
 
@@ -83,11 +126,10 @@ type distribution struct {
 	dist         string
 	latency      float64
 	tail_latency float64
-	prob         float64
+	b            distuv.Bernoulli
 	ln           distuv.LogNormal
 	ps           distuv.Poisson
 	wb           distuv.Weibull
-	rng          *rand.Rand
 }
 
 func newDistribution(dist string) *distribution {
@@ -102,8 +144,10 @@ func newDistribution(dist string) *distribution {
 			dist:         dist,
 			latency:      viper.GetFloat64("distributions.bernoulli.latency"),
 			tail_latency: viper.GetFloat64("distributions.bernoulli.tailLatency"),
-			prob:         viper.GetFloat64("distributions.bernoulli.prob"),
-			rng:          rand.New(rand.NewSource(uint64(time.Now().Nanosecond()))),
+			b: distuv.Bernoulli{
+				P:   viper.GetFloat64("distributions.bernoulli.prob"),
+				Src: rand.NewSource(uint64(time.Now().Nanosecond())),
+			},
 		}
 	case "poisson":
 		return &distribution{
@@ -139,15 +183,32 @@ func newDistribution(dist string) *distribution {
 func (d *distribution) nextValue() float64 {
 	switch d.dist {
 	case "bernoulli":
-		latency := d.latency
-		if d.rng.Float64() >= 1-d.prob {
-			latency = d.tail_latency
+		if d.b.Rand() == 0 {
+			return d.latency
+		} else {
+			return d.tail_latency
 		}
-		return latency
 	case "weibull":
 		return d.wb.Rand()
 	case "logNormal":
 		return d.ln.Rand()
+	default:
+		return d.latency
+	}
+}
+
+func (d *distribution) getP95() float64 {
+	switch d.dist {
+	case "bernoulli":
+		if d.b.Quantile(0.95) == 0 {
+			return d.latency
+		} else {
+			return d.tail_latency
+		}
+	case "weibull":
+		return d.wb.Quantile(0.95)
+	case "logNormal":
+		return d.ln.Quantile(0.95)
 	default:
 		return d.latency
 	}

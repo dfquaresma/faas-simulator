@@ -77,7 +77,7 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 		total = 2 * minDuration // send two but cancels the longer after the shorter finishes
 		workload = callAppend(
 			workload,
-			"immediate_hedged_requests",
+			"hedged_nodelay_cancellation",
 			generated_app,
 			generated_func,
 			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
@@ -94,7 +94,7 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 		}
 		workload = callAppend(
 			workload,
-			"delayed_naive_hedge",
+			"hedge_delayed_nocancellation",
 			generated_app,
 			generated_func,
 			strconv.FormatFloat(end_timestamp, 'f', -1, 64),

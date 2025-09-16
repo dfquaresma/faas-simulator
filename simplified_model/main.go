@@ -23,106 +23,115 @@ func main() {
 	}
 
 	requests_count := viper.GetInt("requests_count")
-	interarrival_dist := viper.GetStringSlice("interarrival_distribution")
-	latency_dist := viper.GetStringSlice("latency_distribution")
+	interarrival_distname := viper.GetStringSlice("interarrival_distribution")
+	servicetime_distname := viper.GetStringSlice("servicetime_distribution")
 	outputPath := viper.GetString("outputPath")
 
-	for i, dist := range interarrival_dist {
-		generate(requests_count, dist, latency_dist[i], outputPath)
+	for i, dist := range interarrival_distname {
+		generate(requests_count, dist, servicetime_distname[i], outputPath)
 	}
 }
 
-func generate(requests_count int, interarrival_dist, latency_dist, outputPath string) {
-	interarrival := newDistribution(interarrival_dist)
-	latency := newDistribution(latency_dist)
-	if interarrival == nil || latency == nil {
-		panic(fmt.Sprintf("Either %s or %s is not valid", interarrival_dist, latency_dist))
+func generate(requests_count int, interarrival_distname, servicetime_distname, outputPath string) {
+	interarrival_dist := newDistribution(interarrival_distname)
+	servicetime_dist := newDistribution(servicetime_distname)
+	if interarrival_dist == nil || servicetime_dist == nil {
+		panic(fmt.Sprintf("Either %s or %s is not valid", interarrival_distname, servicetime_distname))
 	}
 
 	ts := 0.0
-	generated_app := interarrival_dist + "-" + latency_dist + "-app"
-	generated_func := interarrival_dist + "-" + latency_dist + "-func"
+	generated_app := interarrival_distname + "-" + servicetime_distname + "-app"
+	generated_func := interarrival_distname + "-" + servicetime_distname + "-func"
 	workload := [][]string{{"technique", "app", "func", "end_timestamp", "duration", "total_duration"}}
 	for i := 0; i < requests_count; i++ {
-		ts = ts + interarrival.nextValue()
+		ts = ts + interarrival_dist.nextValue()
 
-		duration := latency.nextValue()
-		minDuration := duration
-		end_timestamp := ts + minDuration
-		total := minDuration // vanilla scenario, send just one and that's all
-		workload = callAppend(
-			workload,
-			"baseline",
-			generated_app,
-			generated_func,
-			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(minDuration, 'f', -1, 64),
-			strconv.FormatFloat(total, 'f', -1, 64),
-		)
-
-		copy_duration := latency.nextValue()
-		minDuration = math.Min(duration, copy_duration)
-		end_timestamp = ts + minDuration
-		total = duration + copy_duration // send two and process both completely
-		workload = callAppend(
-			workload,
-			"naive_hedge",
-			generated_app,
-			generated_func,
-			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(minDuration, 'f', -1, 64),
-			strconv.FormatFloat(total, 'f', -1, 64),
-		)
-
-		total = 2 * minDuration // send two but cancels the longer after the shorter finishes
-		workload = callAppend(
-			workload,
-			"hedged_nodelay_cancellation",
-			generated_app,
-			generated_func,
-			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(minDuration, 'f', -1, 64),
-			strconv.FormatFloat(total, 'f', -1, 64),
-		)
-
-		delay := latency.getDelay()
-		minDuration = math.Min(duration, delay+copy_duration)
-		end_timestamp = ts + minDuration
-		total = minDuration
-		if minDuration >= delay {
-			total = duration + copy_duration // two invocs sent, count them both completely
-		}
-		workload = callAppend(
-			workload,
-			"hedge_delayed_nocancellation",
-			generated_app,
-			generated_func,
-			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(minDuration, 'f', -1, 64),
-			strconv.FormatFloat(total, 'f', -1, 64),
-		)
-
-		total = minDuration
-		if minDuration > delay {
-			total += minDuration - delay // duplicates only after delay until the first finish
-		}
-		workload = callAppend(
-			workload,
-			"hedged_requests",
-			generated_app,
-			generated_func,
-			strconv.FormatFloat(end_timestamp, 'f', -1, 64),
-			strconv.FormatFloat(minDuration, 'f', -1, 64),
-			strconv.FormatFloat(total, 'f', -1, 64),
-		)
+		workload = append(workload, getBaseline(servicetime_dist, ts, generated_app, generated_func))
+		workload = append(workload, getNaiveHedged(servicetime_dist, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestNoDelay(servicetime_dist, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestDelayP95(servicetime_dist, ts, generated_app, generated_func))
+		workload = append(workload, getHedgedRequestDelayP99(servicetime_dist, ts, generated_app, generated_func))
 	}
-
-	outputName := "latency_" + latency_dist + "-arrival_" + interarrival_dist + ".csv"
+	outputName := "latency_" + servicetime_distname + "-arrival_" + interarrival_distname + ".csv"
 	io.WriteOutput(outputPath, outputName, workload)
 }
 
-func callAppend(list_to_append [][]string, technique, appId, funcId, ts, dur, totaldur string) [][]string {
-	return append(list_to_append, []string{technique, appId, funcId, ts, dur, totaldur})
+func getBaseline(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
+	service_time := servicetime_dist.nextValue()
+	response_time := service_time
+	end_timestamp := ts + response_time
+	total_time_running_functions := response_time // vanilla scenario, send just one and that's all
+	return []string{
+		"baseline",
+		generated_app,
+		generated_func,
+		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+		strconv.FormatFloat(response_time, 'f', -1, 64),
+		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+	}
+}
+
+func getNaiveHedged(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
+	service_time := servicetime_dist.nextValue()
+	copy_service_time := servicetime_dist.nextValue()
+	delay := 0.0
+	response_time := math.Min(service_time, delay+copy_service_time)
+	end_timestamp := ts + response_time
+	total_time_running_functions := service_time + copy_service_time // send two and process both completely
+	return []string{
+		"naive_hedge",
+		generated_app,
+		generated_func,
+		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+		strconv.FormatFloat(response_time, 'f', -1, 64),
+		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+	}
+}
+
+func getHedgedRequestNoDelay(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
+	service_time := servicetime_dist.nextValue()
+	copy_service_time := servicetime_dist.nextValue()
+	delay := 0.0
+	response_time := math.Min(service_time, delay+copy_service_time)
+	end_timestamp := ts + response_time
+	total_time_running_functions := 2 * response_time // send two but cancels the longer after the shorter finishes
+	return []string{
+		"hedged_requests_nodelay",
+		generated_app,
+		generated_func,
+		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+		strconv.FormatFloat(response_time, 'f', -1, 64),
+		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+	}
+}
+
+func getHedgedRequestDelayP95(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
+	return getHedgedRequest(servicetime_dist, 0.95, ts, "hedged_requests_p95", generated_app, generated_func)
+}
+
+func getHedgedRequestDelayP99(servicetime_dist *distribution, ts float64, generated_app, generated_func string) []string {
+	return getHedgedRequest(servicetime_dist, 0.99, ts, "hedged_requests_p99", generated_app, generated_func)
+}
+
+func getHedgedRequest(servicetime_dist *distribution, p, ts float64, name, generated_app, generated_func string) []string {
+	service_time := servicetime_dist.nextValue()
+	copy_service_time := servicetime_dist.nextValue()
+	delay := servicetime_dist.getPercentile(p)
+	response_time := math.Min(service_time, delay+copy_service_time)
+	end_timestamp := ts + response_time
+	total_time_running_functions := response_time
+	if response_time > delay {
+		delta := response_time - delay
+		total_time_running_functions += delta // add additinal time spent running function after delay up to first finish
+	}
+	return []string{
+		name,
+		generated_app,
+		generated_func,
+		strconv.FormatFloat(end_timestamp, 'f', -1, 64),
+		strconv.FormatFloat(response_time, 'f', -1, 64),
+		strconv.FormatFloat(total_time_running_functions, 'f', -1, 64),
+	}
 }
 
 type distribution struct {
@@ -200,8 +209,7 @@ func (d *distribution) nextValue() float64 {
 	}
 }
 
-func (d *distribution) getDelay() float64 {
-	p := 0.95
+func (d *distribution) getPercentile(p float64) float64 {
 	switch d.dist {
 	case "bernoulli":
 		if d.b.Quantile(p) == 0 {

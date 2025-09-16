@@ -5,12 +5,12 @@
     "constant",
     "constant"
   ],
-  "latency_distribution": [
+  "servicetime_distribution": [
     "bernoulli",
     "weibull",
     "logNormal"
   ],
-  "outputPath": "../sim_results/simple_p95/",
+  "outputPath": "../sim_results/simple/",
     "distributions": {
       "constant": {
         "latency": 5.0

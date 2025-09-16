@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	viper.SetConfigFile("generator_config.json")
+	viper.SetConfigFile("model_config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Failed to read config file: %s", err)
@@ -201,7 +201,7 @@ func (d *distribution) nextValue() float64 {
 }
 
 func (d *distribution) getDelay() float64 {
-	p := 0.99
+	p := 0.95
 	switch d.dist {
 	case "bernoulli":
 		if d.b.Quantile(p) == 0 {

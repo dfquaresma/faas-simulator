@@ -10,7 +10,7 @@
     "weibull",
     "logNormal"
   ],
-  "outputPath": "../sim_results/simple/",
+  "outputPath": "../sim_results/simple_p95/",
     "distributions": {
       "constant": {
         "latency": 5.0

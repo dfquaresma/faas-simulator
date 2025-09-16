@@ -88,7 +88,10 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 		delay := latency.getP95()
 		minDuration = math.Min(duration, delay+copy_duration)
 		end_timestamp = ts + minDuration
-		total = duration + copy_duration // send two and process both completely
+		total = minDuration
+		if minDuration >= delay {
+			total = duration + copy_duration // two invocs sent, count them both completely
+		}
 		workload = callAppend(
 			workload,
 			"delayed_naive_hedge",
@@ -100,7 +103,7 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 		)
 
 		total = minDuration
-		if duration > delay {
+		if minDuration > delay {
 			total += minDuration - delay // duplicates only after delay until the first finish
 		}
 		workload = callAppend(

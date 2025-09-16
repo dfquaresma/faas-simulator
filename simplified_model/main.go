@@ -42,7 +42,7 @@ func generate(requests_count int, interarrival_distname, servicetime_distname, o
 	ts := 0.0
 	generated_app := interarrival_distname + "-" + servicetime_distname + "-app"
 	generated_func := interarrival_distname + "-" + servicetime_distname + "-func"
-	workload := [][]string{{"technique", "app", "func", "end_timestamp", "duration", "total_duration"}}
+	workload := [][]string{{"technique", "app", "func", "end_timestamp", "response_time", "total_time_running_functions"}}
 	for i := 0; i < requests_count; i++ {
 		ts = ts + interarrival_dist.nextValue()
 

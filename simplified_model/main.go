@@ -85,7 +85,7 @@ func generate(requests_count int, interarrival_dist, latency_dist, outputPath st
 			strconv.FormatFloat(total, 'f', -1, 64),
 		)
 
-		delay := latency.getP95()
+		delay := latency.getDelay()
 		minDuration = math.Min(duration, delay+copy_duration)
 		end_timestamp = ts + minDuration
 		total = minDuration
@@ -200,18 +200,19 @@ func (d *distribution) nextValue() float64 {
 	}
 }
 
-func (d *distribution) getP95() float64 {
+func (d *distribution) getDelay() float64 {
+	p := 0.99
 	switch d.dist {
 	case "bernoulli":
-		if d.b.Quantile(0.95) == 0 {
+		if d.b.Quantile(p) == 0 {
 			return d.latency
 		} else {
 			return d.tail_latency
 		}
 	case "weibull":
-		return d.wb.Quantile(0.95)
+		return d.wb.Quantile(p)
 	case "logNormal":
-		return d.ln.Quantile(0.95)
+		return d.ln.Quantile(p)
 	default:
 		return d.latency
 	}

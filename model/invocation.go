@@ -248,6 +248,10 @@ func (i *Invocation) GetP999() float64 {
 	return i.te.percentile.p999
 }
 
+func (i *Invocation) GetShedTimes() int64 {
+	return i.im.shedTimes
+}
+
 func (i *Invocation) getOutPut() []string {
 	return []string{
 		i.te.appID,

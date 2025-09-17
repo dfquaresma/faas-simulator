@@ -19,7 +19,7 @@ type traceEntry struct {
 	endTS      float64
 	percentile percentile
 
-	coldStart   float64
+	coldStart   *coldstart
 	tlProb      string
 	tlthreshold float64
 }
@@ -122,7 +122,7 @@ func toTraceEntry(row []string, tlProb string) (*traceEntry, error) {
 		duration:  duration,
 		endTS:     endTS,
 		startTS:   startTS,
-		coldStart: p100,
+		coldStart: newColdStart(p100),
 		percentile: percentile{
 			p50:   p50,
 			p95:   p95,
@@ -233,7 +233,7 @@ func (i *Invocation) GetDuration() float64 {
 }
 
 func (i *Invocation) GetColdStart() float64 {
-	return i.te.coldStart
+	return i.te.coldStart.getColdStart()
 }
 
 func (i *Invocation) GetStartTS() float64 {

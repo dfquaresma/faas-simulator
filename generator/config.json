@@ -3,20 +3,14 @@
   "interarrival_distribution": [
     "constant",
     "constant",
-    "constant",
-    "poisson",
-    "poisson",
-    "poisson"
+    "constant"
   ],
-  "latency_distribution": [
-    "bernoulli",
-    "weibull",
-    "logNormal",
+  "servicetime_distribution": [
     "bernoulli",
     "weibull",
     "logNormal"
   ],
-  "outputPath": "../traces/generator",
+  "outputPath": "../traces/generated/",
     "distributions": {
       "constant": {
         "latency": 5.0

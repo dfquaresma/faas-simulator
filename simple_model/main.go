@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	viper.SetConfigFile("model_config.json")
+	viper.SetConfigFile("config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Failed to read config file: %s", err)
@@ -56,6 +56,7 @@ func generate(requests_count int, interarrival_distname, servicetime_distname, o
 		workload = append(workload, getHedgedRequestDelayP95(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getHedgedRequestDelayP99(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getPerfectHedgedRequest(service_time, copy_service_time, ts, generated_app, generated_func))
+		workload = append(workload, getNearPerfectHedgedRequest(service_time, copy_service_time, ts, generated_app, generated_func))
 
 		workload = append(workload, getBaseline(service_time, ts, generated_app, generated_func))
 		workload = append(workload, getNaiveHedgedNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
@@ -187,6 +188,15 @@ func getHedgedRequestDelayP95(servicetime_dist *distribution, service_time, copy
 func getHedgedRequestDelayP99(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
 	p99 := servicetime_dist.getPercentile(0.99)
 	return getHedgedRequest(service_time, copy_service_time, p99, ts, "hedged_requests_p99", generated_app, generated_func)
+}
+
+func getNearPerfectHedgedRequest(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	// hedge with cancellation, but only consider copy if it is worth
+	delay := service_time + 1.0
+	if copy_service_time > service_time {
+		delay = 0.0 // if copy is faster, send it right away
+	}
+	return getHedgedRequest(service_time, copy_service_time, delay, ts, "near_perfect_hedged_requests", generated_app, generated_func)
 }
 
 func getPerfectHedgedRequest(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {

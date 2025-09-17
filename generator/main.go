@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	viper.SetConfigFile("generator_config.json")
+	viper.SetConfigFile("config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatalf("Failed to read config file: %s", err)
@@ -23,7 +23,7 @@ func main() {
 
 	requests_count := viper.GetInt("requests_count")
 	interarrival_dist := viper.GetStringSlice("interarrival_distribution")
-	latency_dist := viper.GetStringSlice("latency_distribution")
+	latency_dist := viper.GetStringSlice("servicetime_distribution")
 	outputPath := viper.GetString("outputPath")
 
 	for i, dist := range interarrival_dist {

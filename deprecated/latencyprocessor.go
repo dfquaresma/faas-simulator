@@ -1,0 +1,57 @@
+package deprecated
+
+import (
+	"fmt"
+	"math"
+
+	"github.com/dfquaresma/faas-simulator/model"
+	"github.com/emirpasic/gods/v2/trees/avltree"
+)
+
+type latencyProcessor struct {
+	tree *avltree.Tree[string, float64]
+	p    int
+}
+
+func NewLatencyProcessor(p int) *latencyProcessor {
+	return &latencyProcessor{
+		tree: avltree.New[string, float64](),
+		p:    p,
+	}
+}
+
+func (lp *latencyProcessor) GetCurrTLThreshould(i *model.Invocation) float64 {
+	if !i.IsCopy() && i.GetShedTimes() == 0 {
+		lp.processLatency(i.GetDuration())
+	}
+	if lp.tree.Size() < 100 {
+		return math.Inf(1)
+	}
+	return lp.getPercentileValue(lp.p)
+}
+
+func (lp *latencyProcessor) processLatency(duration float64) {
+	lp.tree.Put(fmt.Sprintf("%f_%d", duration, lp.tree.Size()), duration)
+}
+
+func (lp *latencyProcessor) getPercentileValue(p int) float64 {
+	return kTh(lp.tree.Root, int(lp.tree.Size()*p/100), 0)
+}
+
+func kTh(n *avltree.Node[string, float64], k, prev int) float64 {
+	curr := prev
+	left := n.Children[0]
+	if left != nil {
+		curr = curr + left.Size()
+		if curr >= k {
+			return kTh(left, k, prev)
+		}
+	}
+
+	right := n.Children[1]
+	if right != nil && curr < k-1 {
+		return kTh(right, k, curr+1)
+	}
+
+	return n.Value
+}

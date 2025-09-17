@@ -76,10 +76,10 @@ func (r *replica) Run() {
 				}
 				dur = i.GetDuration() - delay // dur is now the surplus latency after delay to warn TLTT
 
-				shouldTimeout, timeToTimeout := r.provisioner.triggerTechnique(i)
-				if shouldTimeout {
-					godes.Advance(timeToTimeout)
-					r.busyTime += timeToTimeout
+				shouldCancel, timeToCancel := r.provisioner.triggerTechnique(i)
+				if shouldCancel {
+					godes.Advance(timeToCancel)
+					r.busyTime += timeToCancel
 					r.lastWorkTS = godes.GetSystemTime()
 
 					if r.terminatedCond.GetState() {

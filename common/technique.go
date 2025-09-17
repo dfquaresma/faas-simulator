@@ -40,7 +40,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 	iCopy := model.CopyInvocation(i)
 	copyReplicaIsWarm := false
 	switch t.config {
-	case "simplehr", "delayedhr", "optimizedhr":
+	case "hedge_nodelay_nocancel", "delayed_hedge_nocancel", "hedged_request":
 		if !i.IsCopy() {
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
@@ -63,7 +63,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 	}
 
 	switch t.config {
-	case "optimizedhr":
+	case "hedged_request":
 		switch i.IsCopy() {
 		// if it is the triggered copy, cancel it if it takes longer than the original
 		case true:
@@ -87,7 +87,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 
 func (t *technique) getTechniqueDelay(i *model.Invocation) float64 {
 	switch t.config {
-	case "delayedhr", "optimizedhr":
+	case "delayed_hedge_nocancel", "hedged_request":
 		if !i.IsCopy() {
 			return i.GetTailLatencyThreshold()
 		}

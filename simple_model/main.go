@@ -193,7 +193,7 @@ func getHedgedRequestDelayP99(servicetime_dist *distribution, service_time, copy
 func getNearPerfectHedgedRequest(service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
 	// hedge with cancellation, but only consider copy if it is worth
 	delay := service_time + 1.0
-	if copy_service_time > service_time {
+	if copy_service_time < service_time {
 		delay = 0.0 // if copy is faster, send it right away
 	}
 	return getHedgedRequest(service_time, copy_service_time, delay, ts, "near_perfect_hedged_requests", generated_app, generated_func)

@@ -94,7 +94,10 @@ rm(bernoulli_simple)
 rm(lognormal_simple)
 rm(weibull_simple)
 
-tmp <- filter(filter(simple_df, technique == "perfect_hedged_requests"), distribution == "bernoulli")
+#tmp1 <- filter(filter(simple_df, technique == "perfect_hedged_requests"), distribution == "bernoulli")
+#tmp2 <- filter(filter(simple_df, technique == "baseline"), distribution == "bernoulli")
+#rm(tmp1)
+#rm(tmp2)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -103,61 +106,47 @@ library(kableExtra)
 
 scenario <- c()
 baseline_response_time <- c()
-naive_hedge_response_time <- c()
-delayed_naive_hedge_response_time <- c()
 hedged_requests_nodelay_response_time <- c()
 hedged_requests_p95_response_time <- c()
 hedged_requests_p99_response_time <- c()
 perfect_hedged_requests_response_time <- c()
 
-improvement_naive_hedge <- c()
-improvement_delayed_naive_hedge <- c()
 improvement_hedged_requests_nodelay <- c()
 improvement_hedged_requests_p95 <- c()
 improvement_hedged_requests_p99 <- c()
 improvement_perfect_hedged_requests <- c()
 for (i in 1:length(functions_to_plot)) {
   baseline_response                = filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$response_time
-  naive_hedge_response             = filter(filter(simple_df, func == functions_to_plot[i]), technique == "naive_hedge")$response_time
-  delayed_naive_hedge_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$response_time
   hedged_requests_nodelay_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_nodelay")$response_time
   hedged_requests_p95_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_p95")$response_time
   hedged_requests_p99_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_p99")$response_time
   perfect_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$response_time
 
-  scenario <- append(scenario, paste(titles[i], "response_time", sep="-"))
+  scenario                              <- append(scenario, paste(titles[i], "response_time", sep="-"))
   baseline_response_time                <- append(baseline_response_time,                sum(baseline_response))
-  naive_hedge_response_time             <- append(naive_hedge_response_time,             sum(naive_hedge_response))
   hedged_requests_nodelay_response_time <- append(hedged_requests_nodelay_response_time, sum(hedged_requests_nodelay_response))
   hedged_requests_p95_response_time     <- append(hedged_requests_p95_response_time,     sum(hedged_requests_p95_response))
   hedged_requests_p99_response_time     <- append(hedged_requests_p99_response_time,     sum(hedged_requests_p99_response))
   perfect_hedged_requests_response_time <- append(perfect_hedged_requests_response_time, sum(perfect_hedged_requests_response))
 
-  improvement_naive_hedge             <- append(improvement_naive_hedge,             (1-sum(naive_hedge_response)             /sum(baseline_response))*100)
-  improvement_delayed_naive_hedge     <- append(improvement_delayed_naive_hedge,     (1-sum(delayed_naive_hedge_response)     /sum(baseline_response))*100)
   improvement_hedged_requests_nodelay <- append(improvement_hedged_requests_nodelay, (1-sum(hedged_requests_nodelay_response) /sum(baseline_response))*100)
   improvement_hedged_requests_p95     <- append(improvement_hedged_requests_p95,     (1-sum(hedged_requests_p95_response)     /sum(baseline_response))*100)
   improvement_hedged_requests_p99     <- append(improvement_hedged_requests_p99,     (1-sum(hedged_requests_p99_response)     /sum(baseline_response))*100)
   improvement_perfect_hedged_requests <- append(improvement_perfect_hedged_requests, (1-sum(perfect_hedged_requests_response) /sum(baseline_response))*100)
   
   baseline_response                = filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$total_time_running_functions
-  naive_hedge_response             = filter(filter(simple_df, func == functions_to_plot[i]), technique == "naive_hedge")$total_time_running_functions
-  delayed_naive_hedge_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$total_time_running_functions
   hedged_requests_nodelay_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_nodelay")$total_time_running_functions
   hedged_requests_p95_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_p95")$total_time_running_functions
   hedged_requests_p99_response     = filter(filter(simple_df, func == functions_to_plot[i]), technique == "hedged_requests_p99")$total_time_running_functions
   perfect_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$total_time_running_functions
 
-  scenario <- append(scenario, paste(titles[i], "time_running", sep="-"))
+  scenario <- append(scenario, paste(titles[i], "total_time_running_functions", sep="-"))
   baseline_response_time                <- append(baseline_response_time,                sum(baseline_response))
-  naive_hedge_response_time             <- append(naive_hedge_response_time,             sum(naive_hedge_response))
   hedged_requests_nodelay_response_time <- append(hedged_requests_nodelay_response_time, sum(hedged_requests_nodelay_response))
   hedged_requests_p95_response_time     <- append(hedged_requests_p95_response_time,     sum(hedged_requests_p95_response))
   hedged_requests_p99_response_time     <- append(hedged_requests_p99_response_time,     sum(hedged_requests_p99_response))
   perfect_hedged_requests_response_time <- append(perfect_hedged_requests_response_time, sum(perfect_hedged_requests_response))
 
-  improvement_naive_hedge             <- append(improvement_naive_hedge,             (1-sum(naive_hedge_response)             /sum(baseline_response))*100)
-  improvement_delayed_naive_hedge     <- append(improvement_delayed_naive_hedge,     (1-sum(delayed_naive_hedge_response)     /sum(baseline_response))*100)
   improvement_hedged_requests_nodelay <- append(improvement_hedged_requests_nodelay, (1-sum(hedged_requests_nodelay_response) /sum(baseline_response))*100)
   improvement_hedged_requests_p95     <- append(improvement_hedged_requests_p95,     (1-sum(hedged_requests_p95_response)     /sum(baseline_response))*100)
   improvement_hedged_requests_p99     <- append(improvement_hedged_requests_p99,     (1-sum(hedged_requests_p99_response)     /sum(baseline_response))*100)
@@ -165,21 +154,18 @@ for (i in 1:length(functions_to_plot)) {
 
 }
 rm(baseline_response)
-rm(naive_hedge_response)
-rm(delayed_naive_hedge_response)
-rm(immediate_hedged_requests_response)
-rm(hedged_requests_response)
+rm(hedged_requests_nodelay_response)
+rm(hedged_requests_p95_response)
+rm(hedged_requests_p99_response)
+rm(perfect_hedged_requests_response)
 
 latency_table <- data.frame(
   scenario = scenario,
-   naive_hedge = improvement_naive_hedge,
-   delayed_nh = improvement_delayed_naive_hedge,
    hr_nodelay = improvement_hedged_requests_nodelay,
    hr_p95 = improvement_hedged_requests_p95,
    hr_p99 = improvement_hedged_requests_p99,
    hr_perfect = improvement_perfect_hedged_requests
 )
-
 
 kable(
   latency_table,
@@ -187,20 +173,20 @@ kable(
   booktabs = TRUE, 
   digits = 2,
   caption = "Simple Model Latency Improvement Table") %>%
-    add_header_above(c(" " = 1, "naive hedge (nh)" = 2, "hedged request (hr)" = 4)) %>% 
+    add_header_above(c(" " = 1, "hedged request (hr)" = 4)) %>% 
       kable_styling(full_width = FALSE, position = "center")
 
 
 rm(scenario)
 rm(baseline_response_time)
-rm(naive_hedge_response_time)
 rm(hedged_requests_nodelay_response_time)
 rm(hedged_requests_p95_response_time)
 rm(hedged_requests_p99_response_time)
-rm(improvement_naive_hedge)
+rm(perfect_hedged_requests_response)
 rm(improvement_hedged_requests_nodelay)
 rm(improvement_hedged_requests_p95)
 rm(improvement_hedged_requests_p99)
+rm(improvement_perfect_hedged_requests)
 ```
 
 The Latency Improvement Comparison table shows both the improvements for latency and the total latency processed by each technique in the system to achieve the latency the user would perceive. Note that while latency were improved from ~30% up to 75%, the "cost" of it (meaning the total latency processed to achieve this goal), the total latency was almost twice for all function with simplehr technique. Improvement column is always simplehr in comparison for baseline, thus positive values means simplehr is better, negative otherwise.

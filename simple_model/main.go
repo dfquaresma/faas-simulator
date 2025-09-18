@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	firstStart := time.Now()
 	viper.SetConfigFile("config.json")
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -23,48 +24,56 @@ func main() {
 	}
 
 	requests_count := viper.GetInt("requests_count")
-	interarrival_distname := viper.GetStringSlice("interarrival_distribution")
-	servicetime_distname := viper.GetStringSlice("servicetime_distribution")
 	outputPath := viper.GetString("outputPath")
+	functions := viper.GetStringSlice("functions")
 
-	for i, dist := range interarrival_distname {
-		generate(requests_count, dist, servicetime_distname[i], outputPath)
-	}
-}
-
-func generate(requests_count int, interarrival_distname, servicetime_distname, outputPath string) {
-	interarrival_dist := newDistribution(interarrival_distname)
-	servicetime_dist := newDistribution(servicetime_distname)
-	if interarrival_dist == nil || servicetime_dist == nil {
-		panic(fmt.Sprintf("Either %s or %s is not valid", interarrival_distname, servicetime_distname))
-	}
-
-	ts := 0.0
-	generated_app := interarrival_distname + "-" + servicetime_distname + "-app"
-	generated_func := interarrival_distname + "-" + servicetime_distname + "-func"
-	workload := [][]string{{
+	sim_results := [][]string{{
 		"technique", "app", "func",
 		"end_timestamp", "response_time", "total_time_running_functions",
 		"service_time", "copy_service_time", "delay"},
 	}
+	for _, f := range functions {
+		start := time.Now()
+		fmt.Printf("Running for function %s...", f)
+		interarrival_distname := viper.GetString(f + ".interarrival_distribution")
+		servicetime_distname := viper.GetString(f + ".servicetime_distribution")
+		sim_results = append(
+			sim_results,
+			generate(requests_count, f, interarrival_distname, servicetime_distname, outputPath)...,
+		)
+		fmt.Printf(" Finished. Time Running: %s\n", time.Since(start))
+	}
+	io.WriteOutput(outputPath, "simple_model-full-results.csv", sim_results)
+	fmt.Printf("\nTotal Time of Simulation: %s\n", time.Since(firstStart))
+}
+
+func generate(requests_count int, f, interarrival_distname, servicetime_distname, outputPath string) [][]string {
+	interarrival_dist := newDistribution(f, interarrival_distname)
+	servicetime_dist := newDistribution(f, servicetime_distname)
+	if interarrival_dist == nil || servicetime_dist == nil {
+		panic(fmt.Sprintf("Either %s or %s for %s is not valid", interarrival_distname, servicetime_distname, f))
+	}
+
+	ts := 0.0
+	generated_app := servicetime_distname + "_" + interarrival_distname + "-app"
+	generated_func := f
+	workload := [][]string{}
 	for i := 0; i < requests_count; i++ {
 		ts = ts + interarrival_dist.nextValue()
 		service_time := servicetime_dist.nextValue()
 		copy_service_time := servicetime_dist.nextValue()
 
+		workload = append(workload, getBaseline(service_time, ts, generated_app, generated_func))
 		workload = append(workload, getHedgedRequestNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getHedgedRequestDelayP95(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getHedgedRequestDelayP99(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getPerfectHedgedRequest(service_time, copy_service_time, ts, generated_app, generated_func))
 		workload = append(workload, getNearPerfectHedgedRequest(service_time, copy_service_time, ts, generated_app, generated_func))
 
-		workload = append(workload, getBaseline(service_time, ts, generated_app, generated_func))
-		workload = append(workload, getNaiveHedgedNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
-		workload = append(workload, getDelayedNaiveHedged(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
-
+		//workload = append(workload, getNaiveHedgedNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
+		//workload = append(workload, getDelayedNaiveHedged(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 	}
-	outputName := "latency_" + servicetime_distname + "-arrival_" + interarrival_distname + ".csv"
-	io.WriteOutput(outputPath, outputName, workload)
+	return workload
 }
 
 type distribution struct {
@@ -77,20 +86,20 @@ type distribution struct {
 	wb           distuv.Weibull
 }
 
-func newDistribution(dist string) *distribution {
+func newDistribution(f, dist string) *distribution {
 	switch dist {
 	case "constant":
 		return &distribution{
 			dist:    dist,
-			latency: viper.GetFloat64("distributions.constant.latency"),
+			latency: viper.GetFloat64(f + ".distributions.constant.latency"),
 		}
 	case "bernoulli":
 		return &distribution{
 			dist:         dist,
-			latency:      viper.GetFloat64("distributions.bernoulli.latency"),
-			tail_latency: viper.GetFloat64("distributions.bernoulli.tailLatency"),
+			latency:      viper.GetFloat64(f + ".distributions.bernoulli.latency"),
+			tail_latency: viper.GetFloat64(f + ".distributions.bernoulli.tailLatency"),
 			b: distuv.Bernoulli{
-				P:   viper.GetFloat64("distributions.bernoulli.prob"),
+				P:   viper.GetFloat64(f + ".distributions.bernoulli.prob"),
 				Src: rand.NewSource(uint64(time.Now().Nanosecond())),
 			},
 		}
@@ -98,7 +107,7 @@ func newDistribution(dist string) *distribution {
 		return &distribution{
 			dist: dist,
 			ps: distuv.Poisson{
-				Lambda: viper.GetFloat64("distributions.poisson.lambda"),
+				Lambda: viper.GetFloat64(f + ".distributions.poisson.lambda"),
 				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
 			},
 		}
@@ -106,17 +115,17 @@ func newDistribution(dist string) *distribution {
 		return &distribution{
 			dist: dist,
 			wb: distuv.Weibull{
-				K:      viper.GetFloat64("distributions.weibull.k"),
-				Lambda: viper.GetFloat64("distributions.weibull.lambda"),
+				K:      viper.GetFloat64(f + ".distributions.weibull.k"),
+				Lambda: viper.GetFloat64(f + ".distributions.weibull.lambda"),
 				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
 			},
 		}
-	case "logNormal":
+	case "lognormal":
 		return &distribution{
 			dist: dist,
 			ln: distuv.LogNormal{
-				Mu:    viper.GetFloat64("distributions.logNormal.mu"),
-				Sigma: viper.GetFloat64("distributions.logNormal.sigma"),
+				Mu:    viper.GetFloat64(f + ".distributions.logNormal.mu"),
+				Sigma: viper.GetFloat64(f + ".distributions.logNormal.sigma"),
 				Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
 			},
 		}
@@ -135,7 +144,7 @@ func (d *distribution) nextValue() float64 {
 		}
 	case "weibull":
 		return d.wb.Rand()
-	case "logNormal":
+	case "lognormal":
 		return d.ln.Rand()
 	default:
 		return d.latency

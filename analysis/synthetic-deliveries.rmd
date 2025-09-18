@@ -55,14 +55,15 @@ load_sim_results <- function(file_sufix) {
 }
 
 functions_to_plot <- c(
-  "constant-bernoulli-func",
-  "constant-logNormal-func",
-  "constant-weibull-func"
-)
-titles <- c(
-  "bernoulli",
-  "logNormal",
-  "weibull"
+    "bernoulli_9510-const_5.0",
+    "bernoulli_9910-const_5.0",
+
+    "weibull_light-const_5.0",
+    "weibull_medium-const_5.0",
+    "weibull_heavy-const_5.0",
+
+    "lognormal_super-const_5.0",
+    "lognormal_extreme-const_5.0"
 )
 
 ## Plot Arrivals Rate
@@ -80,21 +81,19 @@ Simple Latency Model Simulator is a simplified version that does not considers c
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 simple_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/simple/"
-bernoulli_simple = read.csv(paste(simple_results_path, "latency_bernoulli-arrival_constant.csv", sep=""))
-lognormal_simple = read.csv(paste(simple_results_path, "latency_logNormal-arrival_constant.csv", sep=""))
-weibull_simple = read.csv(paste(simple_results_path, "latency_weibull-arrival_constant.csv", sep=""))
+simple_df = read.csv(paste(simple_results_path, "simple_model-full-results.csv", sep="")) %>% arrange(end_timestamp)
 
-simple_df <- bind_rows(
-  mutate(bernoulli_simple, distribution = "bernoulli"),
-  mutate(lognormal_simple, distribution = "lognormal"),
-  mutate(weibull_simple, distribution = "weibull")
-) %>% arrange(end_timestamp)
-
-rm(bernoulli_simple)
-rm(lognormal_simple)
-rm(weibull_simple)
-
-#tmp1 <- filter(filter(simple_df, technique == "perfect_hedged_requests"), distribution == "bernoulli")
+for (i in 1:length(functions_to_plot)) {
+  print(plot_histogram_fortail(
+    filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$service_time,
+    filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$service_time,
+    "original",
+    "preprocessed",
+    functions_to_plot[i],
+    c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500", "darkblue", "saddlebrown")
+  ))
+}
+#tmp1 <- filter(filter(simple_df, technique == "baseline"), func == "lognormal_super-const_p50")
 #tmp2 <- filter(filter(simple_df, technique == "baseline"), distribution == "bernoulli")
 #rm(tmp1)
 #rm(tmp2)
@@ -125,7 +124,7 @@ for (i in 1:length(functions_to_plot)) {
   near_perfect_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "near_perfect_hedged_requests")$response_time
   perfect_hedged_requests_response      = filter(filter(simple_df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$response_time
 
-  scenario                                   <- append(scenario, paste(titles[i], "response_time", sep="-"))
+  scenario                                   <- append(scenario, paste(functions_to_plot[i], "response_time", sep=": "))
   baseline_response_time                     <- append(baseline_response_time,                sum(baseline_response))
   hedged_requests_nodelay_response_time      <- append(hedged_requests_nodelay_response_time, sum(hedged_requests_nodelay_response))
   hedged_requests_p95_response_time          <- append(hedged_requests_p95_response_time,     sum(hedged_requests_p95_response))
@@ -146,7 +145,7 @@ for (i in 1:length(functions_to_plot)) {
   near_perfect_hedged_requests_response = filter(filter(simple_df, func == functions_to_plot[i]), technique == "near_perfect_hedged_requests")$total_time_running_functions
   perfect_hedged_requests_response      = filter(filter(simple_df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$total_time_running_functions
 
-  scenario                                   <- append(scenario, paste(titles[i], "total_time_running_functions", sep="-"))
+  scenario                                   <- append(scenario, paste(functions_to_plot[i], "total_time_running_functions", sep=": "))
   baseline_response_time                     <- append(baseline_response_time,                sum(baseline_response))
   hedged_requests_nodelay_response_time      <- append(hedged_requests_nodelay_response_time, sum(hedged_requests_nodelay_response))
   hedged_requests_p95_response_time          <- append(hedged_requests_p95_response_time,     sum(hedged_requests_p95_response))
@@ -169,7 +168,7 @@ rm(perfect_hedged_requests_response)
 rm(perfect_hedged_requests_response)
 
 latency_table <- data.frame(
-  scenario = scenario,
+   scenario = scenario,
    hr_nodelay = imprvmnt_hedged_requests_nodelay,
    hr_p95 = imprvmnt_hedged_requests_p95,
    hr_p99 = imprvmnt_hedged_requests_p99,
@@ -178,14 +177,22 @@ latency_table <- data.frame(
 )
 
 kable(
-  latency_table,
+  filter(latency_table, !grepl("weibull", scenario)),
   format = if (knitr::is_latex_output()) "latex" else "html",
   booktabs = TRUE, 
   digits = 2,
-  caption = "Simple Model Latency Improvement Table") %>%
+  caption = "Simple Model Latency Improvement Table All but Weibull") %>%
     add_header_above(c(" " = 1, "hedged request (hr)" = 3, "perfect (p)" = 2)) %>% 
       kable_styling(full_width = FALSE, position = "center")
 
+kable(
+  filter(latency_table, grepl("weibull", scenario)),
+  format = if (knitr::is_latex_output()) "latex" else "html",
+  booktabs = TRUE, 
+  digits = 2,
+  caption = "Simple Model Latency Improvement Table for Weibull") %>%
+    add_header_above(c(" " = 1, "hedged request (hr)" = 3, "perfect (p)" = 2)) %>% 
+      kable_styling(full_width = FALSE, position = "center")
 
 rm(scenario)
 rm(baseline_response_time)

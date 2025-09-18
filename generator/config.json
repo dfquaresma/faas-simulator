@@ -11,26 +11,26 @@
     "logNormal"
   ],
   "outputPath": "../traces/generated/",
-    "distributions": {
-      "constant": {
-        "latency": 5.0
-      },
-      "bernoulli": {
-        "latency": 1.0,
-        "tailLatency": 10.0,
-        "prob": 0.05
-      },
-      "poisson": {
-        "lambda": 4.0
-      },
-      "weibull": {
-        "k": 0.5,
-        "lambda": 5.0
-      },
-      "logNormal": {
-        "mu": 1,
-        "sigma": 1
-      }
+  "distributions": {
+    "constant": {
+      "latency": 5.0
+    },
+    "bernoulli": {
+      "latency": 1.0,
+      "tailLatency": 10.0,
+      "prob": 0.05
+    },
+    "poisson": {
+      "lambda": 4.0
+    },
+    "weibull": {
+      "k": 0.5,
+      "lambda": 5.0
+    },
+    "logNormal": {
+      "mu": 1,
+      "sigma": 1
     }
   }
+}
   

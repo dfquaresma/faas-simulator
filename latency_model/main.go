@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"golang.org/x/exp/rand"
-	"gonum.org/v1/gonum/stat/distuv"
 
-	"github.com/dfquaresma/faas-simulator/io"
+	"github.com/dfquaresma/faas-simulator/trace_model/io"
 )
 
 func main() {
@@ -54,8 +52,8 @@ func main() {
 }
 
 func generate(requests_count int, f, interarrival_distname, servicetime_distname string) [][]string {
-	interarrival_dist := newDistribution(f, interarrival_distname)
-	servicetime_dist := newDistribution(f, servicetime_distname)
+	interarrival_dist := NewDistribution(f, interarrival_distname)
+	servicetime_dist := NewDistribution(f, servicetime_distname)
 	if interarrival_dist == nil || servicetime_dist == nil {
 		panic(fmt.Sprintf("Either %s or %s for %s is not valid", interarrival_distname, servicetime_distname, f))
 	}
@@ -65,9 +63,9 @@ func generate(requests_count int, f, interarrival_distname, servicetime_distname
 	generated_func := f
 	workload := [][]string{}
 	for i := 0; i < requests_count; i++ {
-		ts = ts + interarrival_dist.nextValue()
-		service_time := servicetime_dist.nextValue()
-		copy_service_time := servicetime_dist.nextValue()
+		ts = ts + interarrival_dist.NextValue()
+		service_time := servicetime_dist.NextValue()
+		copy_service_time := servicetime_dist.NextValue()
 
 		workload = append(workload, getBaseline(service_time, ts, generated_app, generated_func))
 		workload = append(workload, getHedgedRequestNoDelay(service_time, copy_service_time, ts, generated_app, generated_func))
@@ -80,98 +78,6 @@ func generate(requests_count int, f, interarrival_distname, servicetime_distname
 		//workload = append(workload, getDelayedNaiveHedged(servicetime_dist, service_time, copy_service_time, ts, generated_app, generated_func))
 	}
 	return workload
-}
-
-type distribution struct {
-	dist         string
-	latency      float64
-	tail_latency float64
-	b            distuv.Bernoulli
-	ln           distuv.LogNormal
-	ps           distuv.Poisson
-	wb           distuv.Weibull
-}
-
-func newDistribution(f, dist string) *distribution {
-	switch dist {
-	case "constant":
-		return &distribution{
-			dist:    dist,
-			latency: viper.GetFloat64(f + ".distributions.constant.latency"),
-		}
-	case "bernoulli":
-		return &distribution{
-			dist:         dist,
-			latency:      viper.GetFloat64(f + ".distributions.bernoulli.latency"),
-			tail_latency: viper.GetFloat64(f + ".distributions.bernoulli.tailLatency"),
-			b: distuv.Bernoulli{
-				P:   viper.GetFloat64(f + ".distributions.bernoulli.prob"),
-				Src: rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "poisson":
-		return &distribution{
-			dist: dist,
-			ps: distuv.Poisson{
-				Lambda: viper.GetFloat64(f + ".distributions.poisson.lambda"),
-				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "weibull":
-		return &distribution{
-			dist: dist,
-			wb: distuv.Weibull{
-				K:      viper.GetFloat64(f + ".distributions.weibull.k"),
-				Lambda: viper.GetFloat64(f + ".distributions.weibull.lambda"),
-				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "lognormal":
-		return &distribution{
-			dist: dist,
-			ln: distuv.LogNormal{
-				Mu:    viper.GetFloat64(f + ".distributions.logNormal.mu"),
-				Sigma: viper.GetFloat64(f + ".distributions.logNormal.sigma"),
-				Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	default:
-		return nil
-	}
-}
-
-func (d *distribution) nextValue() float64 {
-	switch d.dist {
-	case "bernoulli":
-		if d.b.Rand() == 0 {
-			return d.latency
-		} else {
-			return d.tail_latency
-		}
-	case "weibull":
-		return d.wb.Rand()
-	case "lognormal":
-		return d.ln.Rand()
-	default:
-		return d.latency
-	}
-}
-
-func (d *distribution) getPercentile(p float64) float64 {
-	switch d.dist {
-	case "bernoulli":
-		if d.b.Quantile(p) == 0 {
-			return d.latency
-		} else {
-			return d.tail_latency
-		}
-	case "weibull":
-		return d.wb.Quantile(p)
-	case "logNormal":
-		return d.ln.Quantile(p)
-	default:
-		return d.latency
-	}
 }
 
 func getBaseline(service_time, ts float64, generated_app, generated_func string) []string {
@@ -195,13 +101,13 @@ func getHedgedRequestNoDelay(service_time, copy_service_time, ts float64, genera
 	return getHedgedRequest(service_time, copy_service_time, 0.0, ts, "hedged_requests_nodelay", generated_app, generated_func)
 }
 
-func getHedgedRequestDelayP95(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
-	p95 := servicetime_dist.getPercentile(0.95)
+func getHedgedRequestDelayP95(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	p95 := servicetime_dist.GetPercentile(0.95)
 	return getHedgedRequest(service_time, copy_service_time, p95, ts, "hedged_requests_p95", generated_app, generated_func)
 }
 
-func getHedgedRequestDelayP99(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
-	p99 := servicetime_dist.getPercentile(0.99)
+func getHedgedRequestDelayP99(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	p99 := servicetime_dist.GetPercentile(0.99)
 	return getHedgedRequest(service_time, copy_service_time, p99, ts, "hedged_requests_p99", generated_app, generated_func)
 }
 
@@ -257,8 +163,8 @@ func getNaiveHedgedNoDelay(service_time, copy_service_time, ts float64, generate
 	return getNaiveHedged(service_time, copy_service_time, 0, ts, "naive_hedge", generated_app, generated_func)
 }
 
-func getDelayedNaiveHedged(servicetime_dist *distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
-	return getNaiveHedged(service_time, copy_service_time, servicetime_dist.getPercentile(0.95), ts, "delayed_naive_hedge", generated_app, generated_func)
+func getDelayedNaiveHedged(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+	return getNaiveHedged(service_time, copy_service_time, servicetime_dist.GetPercentile(0.95), ts, "delayed_naive_hedge", generated_app, generated_func)
 }
 
 func getNaiveHedged(service_time, copy_service_time, delay, ts float64, name, generated_app, generated_func string) []string {

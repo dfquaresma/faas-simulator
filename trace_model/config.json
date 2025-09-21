@@ -1,7 +1,7 @@
 {
   "generator": {
-    "tracePath": "./traces/generated/generated-trace-processed.csv",
-    "outputPath": "./sim_results/generated/",
+    "tracePath": "../traces/generated/generated-trace-processed.csv",
+    "outputPath": "../sim_results/generated/",
     "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
@@ -14,8 +14,8 @@
     }
   },
   "azure": {
-    "tracePath": "./traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv",
-    "outputPath": "./sim_results/azure/",
+    "tracePath": "../traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv",
+    "outputPath": "../sim_results/azure/",
     "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],

@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/dfquaresma/faas-simulator/runner"
+	"github.com/dfquaresma/faas-simulator/trace_model/runner"
 	"github.com/spf13/viper"
 )
 

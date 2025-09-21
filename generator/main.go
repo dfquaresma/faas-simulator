@@ -7,10 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"golang.org/x/exp/rand"
-	"gonum.org/v1/gonum/stat/distuv"
 
-	"github.com/dfquaresma/faas-simulator/io"
+	"github.com/dfquaresma/faas-simulator/trace_model/io"
 )
 
 func main() {
@@ -49,8 +47,8 @@ func main() {
 }
 
 func generate(requests_count int, f, interarrival_distname, servicetime_distname string) [][]string {
-	interarrival_dist := newDistribution(f, interarrival_distname)
-	servicetime_dist := newDistribution(f, servicetime_distname)
+	interarrival_dist := NewDistribution(f, interarrival_distname)
+	servicetime_dist := NewDistribution(f, servicetime_distname)
 	if interarrival_dist == nil || servicetime_dist == nil {
 		panic(fmt.Sprintf("Either %s or %s for %s is not valid", interarrival_distname, servicetime_distname, f))
 	}
@@ -60,8 +58,8 @@ func generate(requests_count int, f, interarrival_distname, servicetime_distname
 	generated_func := f
 	workload := [][]string{}
 	for i := 0; i < requests_count; i++ {
-		ts = ts + interarrival_dist.nextValue()
-		duration := servicetime_dist.nextValue()
+		ts = ts + interarrival_dist.NextValue()
+		duration := servicetime_dist.NextValue()
 		end_timestamp := ts + duration
 		workload = append(workload, []string{
 			generated_app,
@@ -71,79 +69,4 @@ func generate(requests_count int, f, interarrival_distname, servicetime_distname
 		})
 	}
 	return workload
-}
-
-type distribution struct {
-	dist         string
-	latency      float64
-	tail_latency float64
-	b            distuv.Bernoulli
-	ln           distuv.LogNormal
-	ps           distuv.Poisson
-	wb           distuv.Weibull
-}
-
-func newDistribution(f, dist string) *distribution {
-	switch dist {
-	case "constant":
-		return &distribution{
-			dist:    dist,
-			latency: viper.GetFloat64(f + ".distributions.constant.latency"),
-		}
-	case "bernoulli":
-		return &distribution{
-			dist:         dist,
-			latency:      viper.GetFloat64(f + ".distributions.bernoulli.latency"),
-			tail_latency: viper.GetFloat64(f + ".distributions.bernoulli.tailLatency"),
-			b: distuv.Bernoulli{
-				P:   viper.GetFloat64(f + ".distributions.bernoulli.prob"),
-				Src: rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "poisson":
-		return &distribution{
-			dist: dist,
-			ps: distuv.Poisson{
-				Lambda: viper.GetFloat64(f + ".distributions.poisson.lambda"),
-				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "weibull":
-		return &distribution{
-			dist: dist,
-			wb: distuv.Weibull{
-				K:      viper.GetFloat64(f + ".distributions.weibull.k"),
-				Lambda: viper.GetFloat64(f + ".distributions.weibull.lambda"),
-				Src:    rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	case "lognormal":
-		return &distribution{
-			dist: dist,
-			ln: distuv.LogNormal{
-				Mu:    viper.GetFloat64(f + ".distributions.logNormal.mu"),
-				Sigma: viper.GetFloat64(f + ".distributions.logNormal.sigma"),
-				Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
-			},
-		}
-	default:
-		return nil
-	}
-}
-
-func (d *distribution) nextValue() float64 {
-	switch d.dist {
-	case "bernoulli":
-		if d.b.Rand() == 0 {
-			return d.latency
-		} else {
-			return d.tail_latency
-		}
-	case "weibull":
-		return d.wb.Rand()
-	case "lognormal":
-		return d.ln.Rand()
-	default:
-		return d.latency
-	}
 }

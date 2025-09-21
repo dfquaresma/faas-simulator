@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/agoussia/godes"
-	"github.com/dfquaresma/faas-simulator/model"
+	"github.com/dfquaresma/faas-simulator/trace_model/model"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -40,7 +40,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 	iCopy := model.CopyInvocation(i)
 	copyReplicaIsWarm := false
 	switch t.config {
-	case "hedge_nodelay_nocancel", "delayed_hedge_nocancel", "hedged_request":
+	case "hedged_request":
 		if !i.IsCopy() {
 			iCopy.SetForwardedTs(godes.GetSystemTime())
 			iCopy.SetDuration(t.newLatency(i.GetAppID() + i.GetFuncID()))
@@ -62,6 +62,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 		}
 	}
 
+	// returns if should cancel and after what time
 	switch t.config {
 	case "hedged_request":
 		switch i.IsCopy() {
@@ -87,7 +88,7 @@ func (t *technique) trigger(i *model.Invocation) (bool, float64) {
 
 func (t *technique) getTechniqueDelay(i *model.Invocation) float64 {
 	switch t.config {
-	case "delayed_hedge_nocancel", "hedged_request":
+	case "hedged_request":
 		if !i.IsCopy() {
 			return i.GetTailLatencyThreshold()
 		}

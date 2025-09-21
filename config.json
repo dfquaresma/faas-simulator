@@ -1,6 +1,6 @@
 {
   "generator": {
-    "tracePath": "./traces/generator/all_generated_preprocessed-final.csv",
+    "tracePath": "./traces/generated/generated-trace-processed.csv",
     "outputPath": "./sim_results/generator/",
     "forwardLatency": 0,
     "resourceProvisioner": {
@@ -14,7 +14,7 @@
     }
   },
   "azure": {
-    "tracePath": "./traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv",
+    "tracePath": "./traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv",
     "outputPath": "./sim_results/azure/",
     "forwardLatency": 0,
     "resourceProvisioner": {

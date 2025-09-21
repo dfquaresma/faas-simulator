@@ -20,7 +20,7 @@ file_name = "AzureFunctionsInvocationTraceForTwoWeeksJan2021"
 inv2021 = read.csv(paste(data_path, file_name, ".csv", sep=""), header = TRUE)
 inv2021_preprocessed <- preprocess_data(inv2021)
 # save processed data
-write.csv(inv2021_preprocessed, file = paste(data_path, file_name, "-final.csv", sep=""), row.names = FALSE)
+write.csv(inv2021_preprocessed, file = paste(data_path, file_name, "-processed.csv", sep=""), row.names = FALSE)
 
 end_time <- Sys.time()
 azure_load_duration <- as.numeric(end_time - start_time, units = "secs")
@@ -32,12 +32,13 @@ print(paste("Azure Functions Load Time: ", azure_load_duration, sep=""))
 # Load Generated Functions
 start_time <- Sys.time()
 data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generated/"
+file_name = "generated-trace"
 
-all_generated = read.csv(paste(data_path, "generated-trace", ".csv", sep=""), header = TRUE)
+all_generated = read.csv(paste(data_path, file_name, ".csv", sep=""), header = TRUE)
 all_generated_preprocessed <- preprocess_data(all_generated)
 
 # save processed data
-write.csv(all_generated_preprocessed, file = paste(data_path, "generated-trace", "-final.csv", sep=""), row.names = FALSE)
+write.csv(all_generated_preprocessed, file = paste(data_path, file_name, "-processed.csv", sep=""), row.names = FALSE)
 
 end_time <- Sys.time()
 generated_load_duration <- as.numeric(end_time - start_time, units = "secs")

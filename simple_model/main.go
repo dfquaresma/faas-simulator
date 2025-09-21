@@ -39,7 +39,7 @@ func main() {
 		servicetime_distname := viper.GetString(f + ".servicetime_distribution")
 		sim_results = append(
 			sim_results,
-			generate(requests_count, f, interarrival_distname, servicetime_distname, outputPath)...,
+			generate(requests_count, f, interarrival_distname, servicetime_distname)...,
 		)
 		fmt.Printf(" Finished. Time Running: %s\n", time.Since(start))
 	}
@@ -47,7 +47,7 @@ func main() {
 	fmt.Printf("\nTotal Time of Simulation: %s\n", time.Since(firstStart))
 }
 
-func generate(requests_count int, f, interarrival_distname, servicetime_distname, outputPath string) [][]string {
+func generate(requests_count int, f, interarrival_distname, servicetime_distname string) [][]string {
 	interarrival_dist := newDistribution(f, interarrival_distname)
 	servicetime_dist := newDistribution(f, servicetime_distname)
 	if interarrival_dist == nil || servicetime_dist == nil {

@@ -5,36 +5,31 @@ date: "set, 2025"
 output: pdf_document
 ---
 
-# Introduction
-This document evaluates simulations of hedged requests in FaaS context. The scenarios of study Analyzed here are baseline (pure faas environment without any hedged request technique) vs simplehr (simple hedged requests, meaning all function invocations are duplicated and considered the one with lower latency). PS: current simulator model uses the highest value on the trace's input as coldstart. So we expect to have as much additional values near p100 as the amount of replicas created in simulation time.
-
-The selected functions latencies to be studied here are described using discrete functions synthetized, such as a variation of bernoulli (function with two possible latency values, 1 or 10, 10 occurring 5% of the times), lognormal (tailered distribution defined with sigma and mu both as 1) and weibull (tailered distribution defined with k as 0.5, and lambda as 5.0). With bernoulli we want to understand the simplest scenario, with lognormal and weibull we want to explore tailed distributions. The interarrival for all 3 kinds of function is the same, constante, requests arriving every 5ms.
-
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 source("utils.R")
 
-load_sim_results <- function(file_sufix) {
+load_sim_results <- function(results_path, file_sufix) {
   technique = "baseline"
   parameters = "_idletimeINF_tlprobp95"
-  baseline_inf_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  baseline_inf_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   parameters = "_idletime900.0_tlprobp95"
-  baseline_15min_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  baseline_15min_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   parameters = "_idletime0.0_tlprobp95"
-  baseline_zero_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  baseline_zero_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
 
   technique = "simplehr"
   parameters = "_idletimeINF_tlprobp95"
-  simplehr_inf_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  simplehr_inf_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   parameters = "_idletime900.0_tlprobp95"
-  simplehr_15min_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  simplehr_15min_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   parameters = "_idletime0.0_tlprobp95"
-  simplehr_zero_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  simplehr_zero_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
 
   technique = "simplehr"
   parameters = "_idletimeINF_tlprobp95"
-  simplehr_inf_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  simplehr_inf_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   parameters = "_idletime900.0_tlprobp95"
-  simplehr_15min_input = read.csv(paste(sim_results_path, technique, parameters, file_sufix, sep=""))
+  simplehr_15min_input = read.csv(paste(results_path, technique, parameters, file_sufix, sep=""))
   
   rm(sim_results_path)
   rm(technique)
@@ -75,9 +70,6 @@ functions_to_plot <- c(
 #}
 #rm(generated_input_filtered)
 ```
-
-## Results evaluation for Simple Latency Model Simulator
-Simple Latency Model Simulator is a simplified version that does not considers coldstart or replica management impact. It only generated latencies for baseline and simplehr. It generates one latency value for baseline and two for simplehr, we compare the lower latency generated for simplehr with the one for baseline aiming for latency improvement evaluation, and compare the sum of the generated latencies for simplehr vs the one generetated for baseline to estimate the resource impact.  
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 simple_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/simple/"
@@ -208,24 +200,6 @@ rm(imprvmnt_perfect_hedged_requests)
 rm(imprvmnt_perfect_hedged_requests)
 ```
 
-The Latency Improvement Comparison table shows both the improvements for latency and the total latency processed by each technique in the system to achieve the latency the user would perceive. Note that while latency were improved from ~30% up to 75%, the "cost" of it (meaning the total latency processed to achieve this goal), the total latency was almost twice for all function with simplehr technique. Improvement column is always simplehr in comparison for baseline, thus positive values means simplehr is better, negative otherwise.
-
-\newpage
-## TLDR using tables for results using faas-simulator  
-
-Comparing baseline vs simplehr we attained the expect result of having lower tail latency distributions for simplehr at the cost of high function replica uptime (this is reasonable because that technique duplicate every function invocation). 
-
-The total latency sum improvement with simplehr was huge. Bernoulli total latency reduction was near ~30%, lognormal ~55%, and weibull ~75%. As long tailored the function latency distribution is, it seems the greater is the impact on the total latency distribution. As shown in later histogram at Latency Evaluations, this impact comes from reducing tail latency values.
-
-Total up time for all functions was twice for zero idletime, and almost twice for inf idletime. However, for 15min idletime, up time was 1.7, 1.66, and 1.56 times higher for bernoulli, lognormal and weibull respectively. This suggests that depending on the idletime chosen for replicas, simplehr is able to not double up the up time due to its efficiency improvement.
-
-## Total Latency Improvement Comparison Table
-This table summarizes the overall latency reduction (sum of response times) achieved by simpleHR compared to baseline under different idletime scenarios. The purpose is to quantify the percentage of performance improvement for each simulated function.
-
-- baseline: total time in which a function replica was processing an invocation.
-- simplehr: total time in which a function replica was available idle or processing an invocation.
-- Improvement: ratio baseline latency / simplehr latency (%).
-
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 trace_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generator/"
 sim_results_path="/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/generator/"
@@ -304,16 +278,6 @@ rm(total_latency_table)
 
 rm(scenario)
 ```
-
-As expected since both scenarios are 100% impacted by coldstart on scenario idletime zero, we see zero improvements. However, for idletime inf and 15min we see huge latency improvements pro simplehr from ~29.5% up to ~75% depending on the latency distribution evaluated.
-
-\newpage
-### Table totals for uptime, busytime and efficiency
-This section analyzes how hedged requests affect replica management. The purpose is to evaluate how baseline and simpleHR differ in terms of resource utilization efficiency. The table summarizes replica usage for each function and scenario:
-
-- Total Busy Time: total time in which a function replica was processing an invocation.
-- Total Up Time: total time in which a function replica was available idle or processing an invocation.
-- Efficiency: ratio busy/up (%).
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 file_sufix = "-replicas.csv"
@@ -409,15 +373,6 @@ rm(simplehr_effy)
 rm(percentage)
 ```
 
-The expected result for idletime zero was attained, which is zero improvement as both technique scenarios are greatly impacted by coldstarts. Interestly, for idletime inf we see equal performance. Lastly, idletime 15min simplehr has a sligh advance, meaning it not only improves latency overall but does not penalty resource usage at all. 
-
-\newpage
-# Latency Evaluations
-In this section we will performe a series for latency evaluations. Each comparison will be using 4 histograms for latency, one considering the whole distribution, the second up to the percentile 95, then starting after p95 and lastly starting after p99. The main goal here is to understand the tehcnique impact on latency distribution in different portions of it.
-
-## Sanity Tests comparing generated traces (Bernoulli, LogNormal & Weibull) to simulated baseline at idletime INF
-These histograms compare the synthetic traces with the simulated baseline response times (with infinite idletime). The purpose is to validate the fidelity of the simulator against the trace input. We use infinite idletime here to reduce coldstart influence at maximum. The expected difference here observed is that for each coldstart simulated, the baseline simulated tail latency go towards p100. As shown in the histograms, the overall latency distribution is similar, but the expected coldstart present in simulation make the distribution divergence visually for lognormal and weibull on histogram plots starting after p99.
-
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 generated_input = read.csv(paste(trace_results_path, "all_generated_preprocessed-final.csv", sep=""))
 #generated_input$time_readable <- as.POSIXct(generated_input$target_timestamp, origin = "2021-01-31", tz = "UTC")
@@ -452,14 +407,6 @@ for (i in 1:length(functions_to_plot)) {
 }
 ```
 
-\newpage
-## Simulated: SimpleHR vs Baseline with idletime as INF
-This comparison contrasts baseline vs simpleHR (with infinite idletime). The purpose is to analyze how hedged requests affect latency in scenarios where functions are never deallocated. In the following bullets I'll summarize each results observed:
-
-- Bernoulli: as we can see in histograms for up to p95, the simplehr (green) has all of its values around 1ms while baseline has p95 near 10ms. Thus, we successfully reduced the tail latency for this scenario 
-- LogNormal: using histogram for the whole distribution and histogram starting after p95, we can clearly see that p99 and p999 for simplehr (green) are considerably lower. Other than that, we can't visualize further improvements, although that is somehow an indication that tail latency is also reduced using simplehr on a function with lognormal latency distribution.
-- Weibull results are similar to LogNormal, but in different magnitude.
-
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 for (i in 1:length(functions_to_plot)) {
   call_histograms(
@@ -473,10 +420,6 @@ for (i in 1:length(functions_to_plot)) {
 }
 ```
 
-\newpage
-## Simulated: SimpleHR vs Baseline with idletime as 15min
-In this case, the idletime was set to 15 minutes. The purpose is to evaluate how replica deallocation policies influence the relative performance of simpleHR compared to baseline. For baseline and lognormal results were similar to using a idletime as inf, but for Weibull, we can't see differences on percentiles so to speak.
-
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 for (i in 1:length(functions_to_plot)) {
   call_histograms(
@@ -489,7 +432,6 @@ for (i in 1:length(functions_to_plot)) {
   )
 }
 ```
-
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 file_sufix = "-provisioners.csv"

@@ -33,18 +33,11 @@ print(paste("Azure Functions Load Time: ", azure_load_duration, sep=""))
 start_time <- Sys.time()
 data_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/generated/"
 
-bernoulli_constante = read.csv(paste(data_path, "latency_bernoulli-arrival_constant", ".csv", sep=""), header = TRUE)
-weibull_constante = read.csv(paste(data_path, "latency_weibull-arrival_constant", ".csv", sep=""), header = TRUE)
-logNormal_constante = read.csv(paste(data_path, "latency_logNormal-arrival_constant", ".csv", sep=""), header = TRUE)
-
-all_generated <- do.call(rbind,
-  list(bernoulli_constante, weibull_constante, logNormal_constante)
-)
-rm(bernoulli_constante, weibull_constante, logNormal_constante)
+all_generated = read.csv(paste(data_path, "generated-trace", ".csv", sep=""), header = TRUE)
 all_generated_preprocessed <- preprocess_data(all_generated)
 
 # save processed data
-write.csv(all_generated_preprocessed, file = paste(data_path, "all_generated_preprocessed", "-final.csv", sep=""), row.names = FALSE)
+write.csv(all_generated_preprocessed, file = paste(data_path, "generated-trace", "-final.csv", sep=""), row.names = FALSE)
 
 end_time <- Sys.time()
 generated_load_duration <- as.numeric(end_time - start_time, units = "secs")
@@ -96,22 +89,18 @@ for (i in 1:length(functions_to_plot)) {
 # Generated Functions Plot
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 functions_to_plot <- c(
-  "constant-bernoulli-func",
-  "constant-weibull-func",
-  "constant-logNormal-func"
- #"poisson-bernoulli-func",
- #"poisson-weibull-func",
- #"poisson-logNormal-func",
+    "bernoulli_9510-const_5.0",
+    "bernoulli_9910-const_5.0",
+
+    "weibull_light-const_5.0",
+    "weibull_medium-const_5.0",
+    "weibull_heavy-const_5.0",
+
+    "lognormal_super-const_5.0",
+    "lognormal_extreme-const_5.0"
 )
   
-titles <- c(
-  "constant-bernoulli func",
-  "constant-weibull func",
-  "constant-logNormal func"
-  #"poisson-bernoulli func",
-  #"poisson-weibull func",
-  #"poisson-logNormal func"
-)
+titles <- functions_to_plot
 
 for (i in 1:length(functions_to_plot)) {
   call_histograms(

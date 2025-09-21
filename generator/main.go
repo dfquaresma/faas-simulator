@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/dfquaresma/faas-simulator/latency_model/distuv"
 	"github.com/dfquaresma/faas-simulator/trace_model/io"
 )
 
@@ -47,8 +48,8 @@ func main() {
 }
 
 func generate(requests_count int, f, interarrival_distname, servicetime_distname string) [][]string {
-	interarrival_dist := NewDistribution(f, interarrival_distname)
-	servicetime_dist := NewDistribution(f, servicetime_distname)
+	interarrival_dist := distuv.NewDistribution(f, interarrival_distname)
+	servicetime_dist := distuv.NewDistribution(f, servicetime_distname)
 	if interarrival_dist == nil || servicetime_dist == nil {
 		panic(fmt.Sprintf("Either %s or %s for %s is not valid", interarrival_distname, servicetime_distname, f))
 	}

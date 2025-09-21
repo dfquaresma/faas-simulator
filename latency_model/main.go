@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/dfquaresma/faas-simulator/latency_model/distuv"
 	"github.com/dfquaresma/faas-simulator/trace_model/io"
 )
 
@@ -52,8 +53,8 @@ func main() {
 }
 
 func generate(requests_count int, f, interarrival_distname, servicetime_distname string) [][]string {
-	interarrival_dist := NewDistribution(f, interarrival_distname)
-	servicetime_dist := NewDistribution(f, servicetime_distname)
+	interarrival_dist := distuv.NewDistribution(f, interarrival_distname)
+	servicetime_dist := distuv.NewDistribution(f, servicetime_distname)
 	if interarrival_dist == nil || servicetime_dist == nil {
 		panic(fmt.Sprintf("Either %s or %s for %s is not valid", interarrival_distname, servicetime_distname, f))
 	}
@@ -101,12 +102,12 @@ func getHedgedRequestNoDelay(service_time, copy_service_time, ts float64, genera
 	return getHedgedRequest(service_time, copy_service_time, 0.0, ts, "hedged_requests_nodelay", generated_app, generated_func)
 }
 
-func getHedgedRequestDelayP95(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+func getHedgedRequestDelayP95(servicetime_dist *distuv.Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
 	p95 := servicetime_dist.GetPercentile(0.95)
 	return getHedgedRequest(service_time, copy_service_time, p95, ts, "hedged_requests_p95", generated_app, generated_func)
 }
 
-func getHedgedRequestDelayP99(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+func getHedgedRequestDelayP99(servicetime_dist *distuv.Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
 	p99 := servicetime_dist.GetPercentile(0.99)
 	return getHedgedRequest(service_time, copy_service_time, p99, ts, "hedged_requests_p99", generated_app, generated_func)
 }
@@ -163,7 +164,7 @@ func getNaiveHedgedNoDelay(service_time, copy_service_time, ts float64, generate
 	return getNaiveHedged(service_time, copy_service_time, 0, ts, "naive_hedge", generated_app, generated_func)
 }
 
-func getDelayedNaiveHedged(servicetime_dist *Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
+func getDelayedNaiveHedged(servicetime_dist *distuv.Distribution, service_time, copy_service_time, ts float64, generated_app, generated_func string) []string {
 	return getNaiveHedged(service_time, copy_service_time, servicetime_dist.GetPercentile(0.95), ts, "delayed_naive_hedge", generated_app, generated_func)
 }
 

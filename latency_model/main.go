@@ -32,6 +32,12 @@ func main() {
 		"end_timestamp", "response_time", "total_time_running_functions",
 		"service_time", "copy_service_time", "delay"},
 	}
+	viper.SetConfigFile("../synthetic_functions.json")
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.Fatalf("Failed to read config file: %s", err)
+		return
+	}
 	for _, f := range functions {
 		start := time.Now()
 		fmt.Printf("Running for function %s...", f)

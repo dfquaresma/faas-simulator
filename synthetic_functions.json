@@ -1,0 +1,123 @@
+{
+  "bernoulli_9510-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "bernoulli",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "bernoulli": {
+        "latency": 1.0,
+        "tailLatency": 10.0,
+        "prob": 0.05
+      }
+    }
+  },
+  "bernoulli_9910-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "bernoulli",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "bernoulli": {
+        "latency": 1.0,
+        "tailLatency": 10.0,
+        "prob": 0.05
+      }
+    }
+  },
+
+  "weibull_k05λ5-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "weibull",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "weibull": {
+        "k": 0.5,
+        "lambda": 5.0
+      }
+    }
+  },
+  "weibull_light-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "weibull",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "weibull": {
+        "k": 1.5,
+        "lambda": 100.0
+      }
+    }
+  },
+  "weibull_medium-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "weibull",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "weibull": {
+        "k": 1.0,
+        "lambda": 100.0
+      }
+    }
+  },
+  "weibull_heavy-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "weibull",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "weibull": {
+        "k": 0.6,
+        "lambda": 100.0
+      }
+    }
+  },
+
+  "lognormal_mu1sig1-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "lognormal",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "lognormal": {
+        "mu": 1,
+        "sigma": 1
+      }
+    }
+  },
+  "lognormal_super-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "lognormal",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "lognormal": {
+        "mu": 4.5,
+        "sigma": 1.8
+      }
+    }
+  },
+  "lognormal_extreme-const_5.0": {
+    "interarrival_distribution": "constant",
+    "servicetime_distribution": "lognormal",
+    "distributions": {
+      "constant": {
+        "latency": 5.0
+      },
+      "lognormal": {
+        "mu": 4.5,
+        "sigma": 2.0
+      }
+    }
+  }
+}

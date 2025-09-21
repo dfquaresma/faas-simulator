@@ -27,6 +27,12 @@ func main() {
 	functions := viper.GetStringSlice("functions")
 
 	sim_results := [][]string{{"app", "func", "end_timestamp", "duration"}}
+	viper.SetConfigFile("../synthetic_functions.json")
+	err = viper.ReadInConfig()
+	if err != nil {
+		log.Fatalf("Failed to read config file: %s", err)
+		return
+	}
 	for _, f := range functions {
 		start := time.Now()
 		fmt.Printf("Running for function %s...", f)

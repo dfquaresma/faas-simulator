@@ -1,7 +1,7 @@
 {
   "generator": {
     "tracePath": "./traces/generated/generated-trace-processed.csv",
-    "outputPath": "./sim_results/generator/",
+    "outputPath": "./sim_results/generated/",
     "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],

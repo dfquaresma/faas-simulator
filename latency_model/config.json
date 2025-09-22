@@ -13,7 +13,7 @@
     "lognormal_extreme-const_5.0"
   ],
 
-  "outputPath": "../sim_results/simple/",
+  "outputPath": "../sim_results/latency_model/",
   "requests_count": 150000
 }
   

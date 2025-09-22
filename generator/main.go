@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/dfquaresma/faas-simulator/latency_model/distuv"
-	"github.com/dfquaresma/faas-simulator/trace_model/io"
+	"github.com/dfquaresma/faas-simulator/shared/distuv"
+	"github.com/dfquaresma/faas-simulator/shared/io"
 )
 
 func main() {

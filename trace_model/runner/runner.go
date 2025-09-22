@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dfquaresma/faas-simulator/shared/io"
 	"github.com/dfquaresma/faas-simulator/trace_model/common"
-	"github.com/dfquaresma/faas-simulator/trace_model/io"
 	"github.com/dfquaresma/faas-simulator/trace_model/model"
 )
 

@@ -318,6 +318,108 @@ plot_histogram_fortail <- function(df1, df2, df1_name, df2_name, title, colors) 
           plot.caption = element_text(size = 9, hjust = 0.5))
 }
 
+plot_histogram_fullview <- function(df, df_name, title, colors) {
+  p50  <- quantile(df, probs = 0.5, na.rm = TRUE)
+  p95  <- quantile(df, probs = 0.95, na.rm = TRUE)
+  p99  <- quantile(df, probs = 0.99, na.rm = TRUE)
+  p999 <- quantile(df, probs = 0.999, na.rm = TRUE)
+  p100 <- quantile(df, probs = 1.0, na.rm = TRUE)
+
+  df_name_full    <- paste(df_name, "complete (lines: p999, p100)", sep=" ")
+  df_name_upto95  <- paste(df_name, "up to p95 (lines: p50, p95)", sep=" ")
+  df_name_from95  <- paste(df_name, "from p95 (lines: p99, p100)", sep=" ")
+  df_name_from99  <- paste(df_name, "from p99 (lines: p999, p100)", sep=" ")
+
+  data_combined <- data.frame(
+    duration = c(df,
+                 df[df <= p95],
+                 df[df >= p95],
+                 df[df >= p99]),
+    type = factor(c(rep(df_name_full,   length(df)),
+                    rep(df_name_upto95, length(df[df <= p95])),
+                    rep(df_name_from95, length(df[df >= p95])),
+                    rep(df_name_from99, length(df[df >= p99]))),
+                  levels = c(df_name_full, df_name_upto95, df_name_from95, df_name_from99))
+  )
+
+  max_y <- data_combined %>% 
+    group_by(type) %>% 
+    summarise(ymax = max(hist(duration, breaks = 30, plot = FALSE)$counts), .groups = "drop")
+
+  colors_mapping <- c(
+    df_name_full    = colors[1],
+    df_name_upto95  = colors[2],
+    df_name_from95  = colors[3],
+    df_name_from99  = colors[4]
+  )
+  names(colors_mapping) <- c(df_name_full, df_name_upto95, df_name_from95, df_name_from99)
+
+  lines_df <- data.frame(
+    type = factor(c(
+      df_name_full, df_name_full,             # Complete
+      df_name_upto95, df_name_upto95,         # up to p95
+      df_name_from95, df_name_from95,         # from p95
+      df_name_from99, df_name_from99          # from p99
+    ),
+    levels = c(df_name_full, df_name_upto95, df_name_from95, df_name_from99)),
+    
+    x = c(
+      p999, p100,   # complete
+      p50, p95,     # up to p95
+      p99, p100,    # from p95
+      p999, p100    # from p99
+    ),
+    
+    label = c(
+      "P999", "P100",
+      "P50",  "P95",
+      "P99",  "P100",
+      "P999", "P100"
+    ),
+    
+    linetype = c(
+      "dashed", "dotted",
+      "dashed", "dotted",
+      "dashed", "dotted",
+      "dashed", "dotted"
+    ),
+    
+    color = c(
+      colors[5], colors[5],   # complete
+      colors[6], colors[6],   # up to p95
+      colors[7], colors[7],   # from p95
+      colors[8], colors[8]    # from p99
+    ),
+    
+    y_pos = c(
+      0, max_y$ymax[max_y$type == df_name_full]/2,
+      0, max_y$ymax[max_y$type == df_name_upto95]/2,
+      0, max_y$ymax[max_y$type == df_name_from95]/2,
+      0, max_y$ymax[max_y$type == df_name_from99]/2
+    )
+  )
+  
+  ggplot(data_combined, aes(x = duration, fill = type)) +
+    geom_histogram(alpha = 0.8, bins = 30) +
+    facet_wrap(~type, scales = "free", nrow = 2, ncol = 2) +  # garante 2x2
+    scale_fill_manual(values = colors_mapping) +
+
+    geom_vline(data = lines_df, aes(xintercept = x, linetype = linetype),
+               color = lines_df$color, size = 1.2, show.legend = FALSE) +
+    geom_text(data = lines_df, aes(x = x, y = y_pos, label = label),
+              angle = 90, vjust = 1.5, hjust = -0.1, size = 3, fontface = "bold",
+              color = lines_df$color, show.legend = FALSE) +
+
+    labs(title = title,
+         x = "Duration",
+         y = "Frequency",
+         caption = "Dashed lines: P50/P99/P999 | Dotted lines: P95/P100") +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_text(size = 10, face = "bold"),
+          plot.caption = element_text(size = 9, hjust = 0.5))
+}
+
 call_histograms <- function(df1_latency, df2_latency, df1_name, df2_name, titles, colors) {
   print(plot_histogram(df1_latency, df2_latency, df1_name, df2_name, titles, colors))
   print(plot_histogram_fortail(df1_latency, df2_latency, df1_name, df2_name, titles, colors))
@@ -611,5 +713,3 @@ plot_hist_summarized <- function(df, metric, y_label, title) {
       axis.text = element_text(size = 10)
     )
 }
-
-

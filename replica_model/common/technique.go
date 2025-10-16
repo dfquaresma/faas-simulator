@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/agoussia/godes"
-	"github.com/dfquaresma/faas-simulator/trace_model/model"
+	"github.com/dfquaresma/faas-simulator/replica_model/model"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )

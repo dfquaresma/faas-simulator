@@ -1,7 +1,7 @@
 {
   "generator": {
     "tracePath": "../traces/generated/generated-trace-processed.csv",
-    "outputPath": "../sim_results/trace_model/generated/",
+    "outputPath": "../sim_results/replica_model/generated/",
     "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],
@@ -15,7 +15,7 @@
   },
   "azure": {
     "tracePath": "../traces/azure/AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv",
-    "outputPath": "../sim_results/trace_model/azure/",
+    "outputPath": "../sim_results/replica_model/azure/",
     "forwardLatency": 0,
     "resourceProvisioner": {
       "tailLatencyProb": ["p95", "p99"],

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dfquaresma/faas-simulator/replica_model/common"
+	"github.com/dfquaresma/faas-simulator/replica_model/model"
 	"github.com/dfquaresma/faas-simulator/shared/io"
-	"github.com/dfquaresma/faas-simulator/trace_model/common"
-	"github.com/dfquaresma/faas-simulator/trace_model/model"
 )
 
 func Sim(tracePath, outputPath string, techniques, tailLatencyProbs []string, idletimes []int, forwardLatencies int) {

@@ -3,7 +3,7 @@ package common
 import (
 	"strconv"
 
-	"github.com/dfquaresma/faas-simulator/trace_model/model"
+	"github.com/dfquaresma/faas-simulator/replica_model/model"
 )
 
 type router struct {

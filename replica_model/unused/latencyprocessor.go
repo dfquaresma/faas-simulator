@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/dfquaresma/faas-simulator/trace_model/model"
+	"github.com/dfquaresma/faas-simulator/replica_model/model"
 	"github.com/emirpasic/gods/v2/trees/avltree"
 )
 

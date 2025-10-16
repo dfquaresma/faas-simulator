@@ -3,7 +3,7 @@ package bench
 import (
 	"testing"
 
-	"github.com/dfquaresma/faas-simulator/trace_model/runner"
+	"github.com/dfquaresma/faas-simulator/replica_model/runner"
 )
 
 const tracePath = "../azure/sample-100k-processed.csv"

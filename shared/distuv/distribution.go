@@ -56,8 +56,8 @@ func NewDistribution(f, dist string) *Distribution {
 		return &Distribution{
 			dist: dist,
 			ln: distuv.LogNormal{
-				Mu:    viper.GetFloat64(f + ".distributions.logNormal.mu"),
-				Sigma: viper.GetFloat64(f + ".distributions.logNormal.sigma"),
+				Mu:    viper.GetFloat64(f + ".distributions.lognormal.mu"),
+				Sigma: viper.GetFloat64(f + ".distributions.lognormal.sigma"),
 				Src:   rand.NewSource(uint64(time.Now().Nanosecond())),
 			},
 		}
@@ -93,7 +93,7 @@ func (d *Distribution) GetPercentile(p float64) float64 {
 		}
 	case "weibull":
 		return d.wb.Quantile(p)
-	case "logNormal":
+	case "lognormal":
 		return d.ln.Quantile(p)
 	default:
 		return d.latency

@@ -318,17 +318,17 @@ plot_histogram_fortail <- function(df1, df2, df1_name, df2_name, title, colors) 
           plot.caption = element_text(size = 9, hjust = 0.5))
 }
 
-plot_histogram_fullview <- function(df, df_name, title, colors) {
+plot_histogram_fullview <- function(df, title, colors) {
   p50  <- quantile(df, probs = 0.5, na.rm = TRUE)
   p95  <- quantile(df, probs = 0.95, na.rm = TRUE)
   p99  <- quantile(df, probs = 0.99, na.rm = TRUE)
   p999 <- quantile(df, probs = 0.999, na.rm = TRUE)
   p100 <- quantile(df, probs = 1.0, na.rm = TRUE)
 
-  df_name_full    <- paste(df_name, "complete (lines: p999, p100)", sep=" ")
-  df_name_upto95  <- paste(df_name, "up to p95 (lines: p50, p95)", sep=" ")
-  df_name_from95  <- paste(df_name, "from p95 (lines: p99, p100)", sep=" ")
-  df_name_from99  <- paste(df_name, "from p99 (lines: p999, p100)", sep=" ")
+  df_name_full    <- "complete distrib (lines: p999, p100)"
+  df_name_upto95  <- "distrib up to p95 (lines: p50, p95)"
+  df_name_from95  <- "distrib from p95 (lines: p99, p100)"
+  df_name_from99  <- "distrib from p99 (lines: p999, p100)"
 
   data_combined <- data.frame(
     duration = c(df,

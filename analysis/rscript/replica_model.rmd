@@ -1,5 +1,5 @@
 ---
-title: "Trace Model generated traces results"
+title: "Replica Model Results"
 author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
 date: "set, 2025"
 output: pdf_document
@@ -14,7 +14,7 @@ source("utils.R")
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
 azure_input = read.csv(paste(
   "/Users/davidquaresma/Desktop/repos/faas-simulator/traces/azure/",
-  "AzureFunctionsInvocationTraceForTwoWeeksJan2021-final.csv", sep="")
+  "AzureFunctionsInvocationTraceForTwoWeeksJan2021-processed.csv", sep="")
 )
 
 load_sim_results <- function(results_path, file_sufix) {
@@ -105,11 +105,6 @@ for (i in 1:length(functions_to_plot)) {
 #}
 #rm(generated_input_filtered)
 ```
-
-# 
-```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
-```
-
 
 
 ```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}

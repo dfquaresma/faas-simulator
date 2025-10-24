@@ -1,0 +1,166 @@
+---
+title: "Latency Model Results"
+author: "David Ferreira Quaresma (david.quaresma@ccc.ufcg.edu.br)"
+date: "set, 2025"
+output: pdf_document
+---
+
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+source("utils.R")
+
+functions_to_plot <- c(
+    "bernoulli_9510-const_5.0",
+    "bernoulli_9910-const_5.0",
+
+    "weibull_k05λ5-const_5.0",
+    "weibull_light-const_5.0",
+    "weibull_medium-const_5.0",
+    "weibull_heavy-const_5.0",
+
+    "lognormal_mu1sig1-const_5.0",
+    "lognormal_super-const_5.0",
+    "lognormal_extreme-const_5.0"
+)
+
+simple_results_path = "/Users/davidquaresma/Desktop/repos/faas-simulator/sim_results/latency_model/"
+simple_df = read.csv(paste(simple_results_path, "simple_model-full-results.csv", sep="")) %>% arrange(end_timestamp)
+```
+
+```{r echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+source("utils.R")
+for (i in 1:length(functions_to_plot)) {
+  print(plot_histogram_fullview(
+    filter(filter(simple_df, func == functions_to_plot[i]), technique == "baseline")$service_time,
+    paste("Histogram of service_time for", functions_to_plot[i], sep=" "),
+    c("#53B0E6", "#FFB86B", "#0000CC", "#CC5500",
+      "darkblue", "saddlebrown", "#53B0E6", "#FFB86B")
+  ))
+}
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+generate_improvement_table <- function(df) {
+  scenario <- c()
+  imprvmnt_hedged_requests_nodelay <- c()
+  imprvmnt_hedged_requests_p95 <- c()
+  imprvmnt_hedged_requests_p99 <- c()
+  imprvmnt_near_perfect_hedged_requests <- c()
+  imprvmnt_perfect_hedged_requests <- c()
+  imprvmnt_naive_hedged_requests <- c()
+  imprvmnt_delayed_naive_hedged_requests <- c()
+
+  for (i in 1:length(functions_to_plot)) {
+    baseline_response                     = filter(filter(df, func == functions_to_plot[i]), technique == "baseline")$response_time
+    hedged_requests_nodelay_response      = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_nodelay")$response_time
+    hedged_requests_p95_response          = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_p95")$response_time
+    hedged_requests_p99_response          = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_p99")$response_time
+    near_perfect_hedged_requests_response = filter(filter(df, func == functions_to_plot[i]), technique == "near_perfect_hedged_requests")$response_time
+    perfect_hedged_requests_response      = filter(filter(df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$response_time
+    naive_hedged_requests                 = filter(filter(df, func == functions_to_plot[i]), technique == "naive_hedge")$response_time
+    delayed_naive_hedged_requests         = filter(filter(df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$response_time
+  
+    scenario                               <- append(scenario, paste(functions_to_plot[i], "response_time", sep=": "))
+    imprvmnt_hedged_requests_nodelay       <- append(imprvmnt_hedged_requests_nodelay,      (1-sum(hedged_requests_nodelay_response)      /sum(baseline_response))*100)
+    imprvmnt_hedged_requests_p95           <- append(imprvmnt_hedged_requests_p95,          (1-sum(hedged_requests_p95_response)          /sum(baseline_response))*100)
+    imprvmnt_hedged_requests_p99           <- append(imprvmnt_hedged_requests_p99,          (1-sum(hedged_requests_p99_response)          /sum(baseline_response))*100)
+    imprvmnt_near_perfect_hedged_requests  <- append(imprvmnt_near_perfect_hedged_requests, (1-sum(near_perfect_hedged_requests_response) /sum(baseline_response))*100)
+    imprvmnt_perfect_hedged_requests       <- append(imprvmnt_perfect_hedged_requests,      (1-sum(perfect_hedged_requests_response)      /sum(baseline_response))*100)
+    imprvmnt_naive_hedged_requests         <- append(imprvmnt_naive_hedged_requests,        (1-sum(naive_hedged_requests)                 /sum(baseline_response))*100)
+    imprvmnt_delayed_naive_hedged_requests <- append(imprvmnt_delayed_naive_hedged_requests,(1-sum(delayed_naive_hedged_requests)         /sum(baseline_response))*100)
+  
+    baseline_response                     = filter(filter(df, func == functions_to_plot[i]), technique == "baseline")$total_time_running_functions
+    hedged_requests_nodelay_response      = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_nodelay")$total_time_running_functions
+    hedged_requests_p95_response          = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_p95")$total_time_running_functions
+    hedged_requests_p99_response          = filter(filter(df, func == functions_to_plot[i]), technique == "hedged_requests_p99")$total_time_running_functions
+    near_perfect_hedged_requests_response = filter(filter(df, func == functions_to_plot[i]), technique == "near_perfect_hedged_requests")$total_time_running_functions
+    perfect_hedged_requests_response      = filter(filter(df, func == functions_to_plot[i]), technique == "perfect_hedged_requests")$total_time_running_functions
+    naive_hedged_requests                 = filter(filter(df, func == functions_to_plot[i]), technique == "naive_hedge")$total_time_running_functions
+    delayed_naive_hedged_requests         = filter(filter(df, func == functions_to_plot[i]), technique == "delayed_naive_hedge")$total_time_running_functions
+  
+    scenario                               <- append(scenario, paste(functions_to_plot[i], "total_time_running_functions", sep=": "))
+    imprvmnt_hedged_requests_nodelay       <- append(imprvmnt_hedged_requests_nodelay,      (1-sum(hedged_requests_nodelay_response)      /sum(baseline_response))*100)
+    imprvmnt_hedged_requests_p95           <- append(imprvmnt_hedged_requests_p95,          (1-sum(hedged_requests_p95_response)          /sum(baseline_response))*100)
+    imprvmnt_hedged_requests_p99           <- append(imprvmnt_hedged_requests_p99,          (1-sum(hedged_requests_p99_response)          /sum(baseline_response))*100)
+    imprvmnt_near_perfect_hedged_requests  <- append(imprvmnt_near_perfect_hedged_requests, (1-sum(near_perfect_hedged_requests_response) /sum(baseline_response))*100)
+    imprvmnt_perfect_hedged_requests       <- append(imprvmnt_perfect_hedged_requests,      (1-sum(perfect_hedged_requests_response)      /sum(baseline_response))*100)
+    imprvmnt_naive_hedged_requests         <- append(imprvmnt_naive_hedged_requests,        (1-sum(naive_hedged_requests)                 /sum(baseline_response))*100)
+    imprvmnt_delayed_naive_hedged_requests <- append(imprvmnt_delayed_naive_hedged_requests,(1-sum(delayed_naive_hedged_requests)         /sum(baseline_response))*100)
+  }
+  rm(baseline_response)
+  rm(hedged_requests_nodelay_response)
+  rm(hedged_requests_p95_response)
+  rm(hedged_requests_p99_response)
+  rm(near_perfect_hedged_requests_response)
+  rm(perfect_hedged_requests_response)
+  rm(naive_hedged_requests)
+  rm(delayed_naive_hedged_requests)
+
+  latency_table <- data.frame(
+     scenario = scenario,
+     n_delayed = imprvmnt_delayed_naive_hedged_requests,
+     hr_nodelay = imprvmnt_hedged_requests_nodelay,
+     hr_p95 = imprvmnt_hedged_requests_p95,
+     hr_p99 = imprvmnt_hedged_requests_p99,
+     tied_request = imprvmnt_near_perfect_hedged_requests,
+     perfect = imprvmnt_perfect_hedged_requests
+  )
+  rm(scenario)
+  rm(imprvmnt_hedged_requests_nodelay)
+  rm(imprvmnt_hedged_requests_p95)
+  rm(imprvmnt_hedged_requests_p99)
+  rm(imprvmnt_near_perfect_hedged_requests)
+  rm(imprvmnt_perfect_hedged_requests)
+  rm(imprvmnt_naive_hedged_requests)
+  rm(imprvmnt_delayed_naive_hedged_requests)
+
+  return(latency_table)
+}
+
+latency_table = generate_improvement_table(simple_df)
+
+library(knitr)
+library(kableExtra)
+kable(
+  filter(latency_table, !grepl("weibull", scenario)),
+  format = if (knitr::is_latex_output()) "latex" else "html",
+  booktabs = TRUE, 
+  digits = 2,
+  caption = "Simple Model Latency Improvement Table All but Weibull"
+) %>%
+  add_header_above(c(" " = 1, "naive (n)" = 1, "hedged request (hr)" = 3, "optimal" = 2)) %>% 
+  kable_styling(full_width = TRUE, position = "center") %>% 
+  scroll_box(width = "100%", height = "400px")
+
+kable(
+  filter(latency_table, grepl("bernoulli", scenario)),
+  format = if (knitr::is_latex_output()) "latex" else "html",
+  booktabs = TRUE, 
+  digits = 2,
+  caption = "Simple Model Latency Improvement Table for Bernoulli"
+) %>%
+  add_header_above(c(" " = 1, "naive (n)" = 1, "hedged request (hr)" = 3, "optimal" = 2)) %>% 
+  kable_styling(full_width = TRUE, position = "center") %>% 
+  scroll_box(width = "100%", height = "400px")
+
+kable(
+  filter(latency_table, grepl("lognormal", scenario)),
+  format = if (knitr::is_latex_output()) "latex" else "html",
+  booktabs = TRUE, 
+  digits = 2,
+  caption = "Simple Model Latency Improvement Table for LogNormal"
+) %>%
+  add_header_above(c(" " = 1, "naive (n)" = 1, "hedged request (hr)" = 3, "optimal" = 2)) %>% 
+  kable_styling(full_width = TRUE, position = "center") %>% 
+  scroll_box(width = "100%", height = "400px")
+
+kable(
+  filter(latency_table, grepl("weibull", scenario)),
+  format = if (knitr::is_latex_output()) "latex" else "html",
+  booktabs = TRUE, 
+  digits = 2,
+  caption = "Simple Model Latency Improvement Table for Weibull"
+) %>%
+  add_header_above(c(" " = 1, "naive (n)" = 1, "hedged request (hr)" = 3, "optimal" = 2)) %>% 
+  kable_styling(full_width = TRUE, position = "center") %>% 
+  scroll_box(width = "100%", height = "400px")
+```

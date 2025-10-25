@@ -8,8 +8,7 @@
       "idletime": [-1, 0, 900],
       "technique": [
         "baseline",
-        "hedged_request",
-        "gci"
+        "hedged_request"
       ]
     }
   },
@@ -22,8 +21,7 @@
       "idletime": [-1, 0, 900],
       "technique": [
         "baseline",
-        "hedged_request",
-        "gci"
+        "hedged_request"
       ]
     }
   }

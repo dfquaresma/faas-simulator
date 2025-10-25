@@ -70,33 +70,7 @@ preprocess_data <- function(df) {
   return(inv2021_merged)
 }
 
-plot_requests_workload <- function(df, bin_size = "10 min", title = "Requests Over Time") {
-  # converter start_timestamp em POSIXct (ajuste origin conforme necessário)
-  df$time_readable <- as.POSIXct(df$start_timestamp, origin = "1970-01-01", tz = "UTC")
-  
-  binned_df <- df %>%
-    mutate(bin_time = floor_date(time_readable, unit = bin_size)) %>%  # arredonda para o início do bin
-    group_by(bin_time) %>%
-    summarise(requests = n(), .groups = "drop")
-  
-  ggplot(binned_df, aes(x = bin_time, y = requests)) +
-    geom_line(color = "steelblue", size = 1) +
-    geom_point(color = "steelblue", size = 1) +
-    scale_x_datetime(
-      date_labels = "%d %b\n%H:%M",
-      date_breaks = "2 days"
-    ) +
-    labs(
-      title = title,
-      x = "Time",
-      y = "Amount of Requests"
-    ) +
-    theme_minimal(base_size = 14) +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      legend.position = "none"
-    )
-}
+percent_improvement <- function(a, b) { return((1.0 - a / b) * 100.0) }
 
 plot_histogram <- function(df1, df2, df1_name, df2_name, title, colors) {
   p50_df1 = quantile(df1, probs = 0.5, na.rm = TRUE)
@@ -425,6 +399,34 @@ call_histograms <- function(df1_latency, df2_latency, df1_name, df2_name, titles
   print(plot_histogram_fortail(df1_latency, df2_latency, df1_name, df2_name, titles, colors))
 }
 
+plot_requests_workload <- function(df, bin_size = "10 min", title = "Requests Over Time") {
+  # converter start_timestamp em POSIXct (ajuste origin conforme necessário)
+  df$time_readable <- as.POSIXct(df$start_timestamp, origin = "1970-01-01", tz = "UTC")
+  
+  binned_df <- df %>%
+    mutate(bin_time = floor_date(time_readable, unit = bin_size)) %>%  # arredonda para o início do bin
+    group_by(bin_time) %>%
+    summarise(requests = n(), .groups = "drop")
+  
+  ggplot(binned_df, aes(x = bin_time, y = requests)) +
+    geom_line(color = "steelblue", size = 1) +
+    geom_point(color = "steelblue", size = 1) +
+    scale_x_datetime(
+      date_labels = "%d %b\n%H:%M",
+      date_breaks = "2 days"
+    ) +
+    labs(
+      title = title,
+      x = "Time",
+      y = "Amount of Requests"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "none"
+    )
+}
+
 calculate_responseTimeToEvaluate <- function(df) {
   df$minResponseTime = pmin(df$responseTime, df$techniqueResponseTime)
   df$responseTimeToEvaluate = ifelse(df$minResponseTime != 0, df$minResponseTime, df$responseTime)
@@ -520,6 +522,7 @@ plot_replicas_alive <- function(df, snames, scenario_col = "scenario", title = "
       legend.position = "top"
     )
 }
+
 
 plot_ecdf <- function(title, df, xinf, xsup, yinf, ysup, linetype=c("solid", "dotted", "dotdash", "dashed"), cols=c(15, 195, 150), img_name=FALSE) {
   vanilla.color <- "limegreen"
